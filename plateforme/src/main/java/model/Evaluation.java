@@ -31,4 +31,36 @@ public class Evaluation {
         this.nombreVotesUtile++;
     }
 
+    public void voterPasUtile() {
+        this.nombreVotesPasUtile++;
+    }
+
+    // Getters
+    public String getPseudoJoueur() {
+        return pseudoJoueur;
+    }
+
+    public String getTitreJeu() {
+        return titreJeu;
+    }
+
+    public int getNote() {
+        return note;
+    }
+
+    public String getCommentaire() {
+        return commentaire;
+    }
+
+    public LocalDateTime getDatePublication() {
+        return datePublication;
+    }
+
+    public int getNombreVotesUtile() {
+        return nombreVotesUtile;
+    }
+
+    public int getNombreVotesPasUtile() {
+        return nombreVotesPasUtile;
+    }
 }

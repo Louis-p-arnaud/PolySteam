@@ -1,0 +1,79 @@
+{
+  "type": "record",
+  "name": "RapportIncidentEvent",
+  "namespace": "com.polysteam.plateforme.events",
+  "doc": "Événement émis par la plateforme vers un éditeur lors d'un crash/incident de jeu",
+  "fields": [
+    {
+      "name": "eventId",
+      "type": "string",
+      "doc": "Identifiant unique de l'événement"
+    },
+    {
+      "name": "timestamp",
+      "type": "long",
+      "doc": "Timestamp de création de l'événement (epoch millis)"
+    },
+    {
+      "name": "incidentId",
+      "type": "string",
+      "doc": "Identifiant unique de l'incident"
+    },
+    {
+      "name": "jeuId",
+      "type": "string",
+      "doc": "Identifiant du jeu concerné"
+    },
+    {
+      "name": "titreJeu",
+      "type": "string",
+      "doc": "Titre du jeu concerné"
+    },
+    {
+      "name": "editeurId",
+      "type": "string",
+      "doc": "Identifiant de l'éditeur concerné"
+    },
+    {
+      "name": "versionJeu",
+      "type": "string",
+      "doc": "Version du jeu lors de l'incident"
+    },
+    {
+      "name": "plateforme",
+      "type": "string",
+      "doc": "Plateforme/OS sur laquelle l'incident s'est produit"
+    },
+    {
+      "name": "pseudoJoueur",
+      "type": "string",
+      "doc": "Pseudo du joueur ayant rencontré l'incident"
+    },
+    {
+      "name": "typeIncident",
+      "type": {
+        "type": "enum",
+        "name": "TypeIncident",
+        "symbols": ["CRASH", "FREEZE", "ERREUR_GRAPHIQUE", "ERREUR_SON", "ERREUR_SAUVEGARDE", "AUTRE"]
+      },
+      "doc": "Type d'incident rencontré"
+    },
+    {
+      "name": "descriptionErreur",
+      "type": "string",
+      "doc": "Description détaillée de l'erreur (stacktrace, code erreur, etc.)"
+    },
+    {
+      "name": "dateSurvenue",
+      "type": "long",
+      "doc": "Date/heure de survenue de l'incident (epoch millis)"
+    },
+    {
+      "name": "contexte",
+      "type": ["null", "string"],
+      "default": null,
+      "doc": "Contexte de l'incident (action en cours, niveau, etc.)"
+    }
+  ]
+}
+
