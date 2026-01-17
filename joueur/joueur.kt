@@ -11,7 +11,7 @@ data class Joueur(
     private val _wishList = mutableListOf<Jeux>() // [cite: 65, 68]
     private val _mapTempsDeJeux = mutableMapOf<String, Float>() // [cite: 50]
 
-    // Getters (et setters si nécessaire)
+    // Getters et setters
     val pseudo: String get() = _pseudo
     var nom: String get() = _nom; set(value) { _nom = value }
     var prenom: String get() = _prenom; set(value) { _prenom = value }
