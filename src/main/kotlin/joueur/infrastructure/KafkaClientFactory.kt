@@ -24,7 +24,6 @@ object KafkaClientFactory {
         return props
     }
 
-    // Ajoute @JvmStatic ici
     @JvmStatic
     fun createAchatJeuProducer(): KafkaProducer<String, AchatJeuEvent> {
         val props = getCommonProps()
@@ -33,7 +32,6 @@ object KafkaClientFactory {
         return KafkaProducer(props)
     }
 
-    // Et ici aussi pour le Consumer
     @JvmStatic
     fun createAchatJeuConsumer(groupId: String): KafkaConsumer<String, AchatJeuEvent> {
         val props = getCommonProps()
