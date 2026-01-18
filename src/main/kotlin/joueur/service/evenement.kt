@@ -1,3 +1,8 @@
+package service
+
+import model.Jeux
+import model.Joueur
+
 class Evenement(private val joueur: Joueur) {
 
     fun inscriptionUtilisateurPlateforme() {

@@ -1,3 +1,5 @@
+package model
+
 import java.time.LocalDate
 
 data class Joueur(

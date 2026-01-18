@@ -1,4 +1,4 @@
-import java.time.LocalDate
+package model
 
 data class Jeux(
     private var _nomJeux: String,
