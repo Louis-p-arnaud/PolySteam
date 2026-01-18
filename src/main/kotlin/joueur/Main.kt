@@ -3,6 +3,8 @@ import model.Joueur
 import service.Evenement
 import java.time.LocalDate
 import com.projet.joueur.AchatJeuEvent
+import infrastructure.KafkaClientFactory
+import org.apache.kafka.clients.producer.ProducerRecord
 
 
 fun main() {
@@ -26,6 +28,20 @@ fun main() {
             .build()
 
         println("✅ Succès Avro : Objet créé pour le joueur ${event.getPseudo()}")
+
+        // Dans ton bloc try, après la création de l'event :
+        val producer = KafkaClientFactory.createAchatProducer()
+        val record = ProducerRecord<String, AchatJeuEvent>("achats-jeux", event.getPseudo().toString(), event)
+
+        producer.send(record) { metadata, exception ->
+            if (exception == null) {
+                println("🚀 Kafka : Message envoyé dans le topic ${metadata.topic()} (offset: ${metadata.offset()})")
+            } else {
+                println("❌ Erreur d'envoi Kafka : ${exception.message}")
+            }
+        }
+        producer.flush() // Force l'envoi
+        producer.close() // Ferme proprement
     } catch (e: Exception) {
         println("❌ Erreur Avro : ${e.message}")
     }
