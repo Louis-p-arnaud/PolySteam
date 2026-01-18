@@ -30,7 +30,7 @@ fun main() {
         println("✅ Succès Avro : Objet créé pour le joueur ${event.getPseudo()}")
 
         // Dans ton bloc try, après la création de l'event :
-        val producer = KafkaClientFactory.createAchatProducer()
+        val producer = KafkaClientFactory.createAchatJeuProducer()
         val record = ProducerRecord<String, AchatJeuEvent>("achats-jeux", event.getPseudo().toString(), event)
 
         producer.send(record) { metadata, exception ->
