@@ -9,7 +9,7 @@ import java.time.Duration
 import java.util.*
 
 
-fun main() {/*
+fun main() {
     val j = Joueur("Sniper99", "Dupont", "Jean", LocalDate.of(2000, 5, 15))
     val engine = Evenement(j)
     val elden = Jeux("Elden Ring", 60, listOf("RPG"))
@@ -46,7 +46,7 @@ fun main() {/*
         producer.close() // Ferme proprement
     } catch (e: Exception) {
         println("❌ Erreur Avro : ${e.message}")
-    }*/
+    }
 
     // --- PARTIE 1 : ENVOI (PRODUCER) ---
     val event = AchatJeuEvent.newBuilder()
