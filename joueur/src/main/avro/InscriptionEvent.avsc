@@ -1,0 +1,13 @@
+{
+        "type": "record",
+        "name": "InscriptionEvent",
+        "namespace": "com.projet.joueur",
+        "fields": [
+        {"name": "pseudo", "type": "string"},
+        {"name": "password", "type": "string"},
+        {"name": "nom", "type": "string"},
+        {"name": "prenom", "type": "string"},
+        {"name": "dateNaissance", "type": "string"},
+        {"name": "typeAction", "type": "string"}
+        ]
+        }

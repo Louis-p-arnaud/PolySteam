@@ -6,6 +6,7 @@ import com.projet.joueur.AchatJeuEvent
 import infrastructure.KafkaClientFactory
 import org.apache.kafka.clients.producer.ProducerRecord
 import java.time.Duration
+import infrastructure.UtilisationDuJoueur
 import java.util.*
 
 
@@ -91,5 +92,7 @@ fun main() {
 
     consumer.close()
     producer.close()
+
+    UtilisationDuJoueur.run()
 
 }

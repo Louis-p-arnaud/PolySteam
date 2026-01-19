@@ -43,4 +43,12 @@ object KafkaClientFactory {
         props["specific.avro.reader"] = "true"
         return KafkaConsumer(props)
     }
+
+    @JvmStatic
+    fun createInscriptionProducer(): KafkaProducer<String, com.projet.joueur.InscriptionEvent> {
+        val props = getCommonProps()
+        props[ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG] = StringSerializer::class.java
+        props[ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG] = KafkaAvroSerializer::class.java
+        return KafkaProducer(props)
+    }
 }

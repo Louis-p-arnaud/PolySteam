@@ -24,4 +24,33 @@ class Evenement(private val joueur: Joueur) {
             println("Action refusée : conditions non remplies.")
         }
     }
+
+
+
+
+
+
+    fun affichageFluxInformation() {
+        println("📡 Affichage du flux d'actualités pour ${joueur.pseudo}...")
+    }
+
+    fun LikerCommentaireJeu() {
+        println("👍 Vous avez aimé un commentaire.")
+    }
+
+    fun DislikerCommentaireJeu() {
+        println("👎 Vous avez disliké un commentaire.")
+    }
+
+    fun consulterJoueur(autreJoueur: Joueur) {
+        println("👤 Consultation du profil de ${autreJoueur.pseudo} par ${joueur.pseudo}.")
+    }
+
+    fun consulterPageJeux() {
+        println("📖 Consultation de la boutique/catalogue des jeux.")
+    }
+
+    fun consulterFluxInformation() {
+        println("🔍 Consultation détaillée du flux d'information.")
+    }
 }
