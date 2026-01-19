@@ -6,7 +6,7 @@ data class Joueur(
     private val _pseudo: String, // Unique et immuable après création
     private var _nom: String,
     private var _prenom: String,
-    private var _dateDeNaissance: LocalDate
+    private var _dateDeNaissance: String
 ) {
     private var _estInscrit: Boolean = false
     private val _possedeJeux = mutableMapOf<String, Triple<Jeux, String, String>>() // [cite: 62]
@@ -17,7 +17,7 @@ data class Joueur(
     val pseudo: String get() = _pseudo
     var nom: String get() = _nom; set(value) { _nom = value }
     var prenom: String get() = _prenom; set(value) { _prenom = value }
-    var dateDeNaissance: LocalDate get() = _dateDeNaissance; set(value) { _dateDeNaissance = value }
+    var dateDeNaissance: String get() = _dateDeNaissance; set(value) { _dateDeNaissance = value }
     var estInscrit: Boolean get() = _estInscrit; set(value) { _estInscrit = value }
 
     val possedeJeux get() = _possedeJeux
