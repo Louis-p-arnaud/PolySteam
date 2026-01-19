@@ -1,5 +1,8 @@
 package service
 
+import com.projet.joueur.ConsulterProfilEvent
+import com.projet.joueur.EvaluationEvent
+import com.projet.joueur.ReactionEvent
 import model.Jeux
 import model.Joueur
 import com.projet.joueur.TempsJeuEvent
@@ -39,6 +42,50 @@ class Evenement(private val joueur: Joueur) {
             .setPseudo(joueur.pseudo)
             .setNomJeu(jeu.nomJeux)
             .setHeuresAjoutees(heures)
+            .setTimestamp(System.currentTimeMillis())
+            .build()
+    }
+
+    /**
+     * Crée une évaluation pour un jeu.
+     * Vérifie la règle métier : temps de jeu > 1h.
+     */
+    fun creerEvaluation(nomJeu: String, note: Int, commentaire: String): EvaluationEvent? {
+        val tempsDeJeu = joueur.mapTempsDeJeux[nomJeu] ?: 0f
+
+        if (tempsDeJeu < 1.0f) {
+            println("❌ Action impossible : Vous n'avez que ${tempsDeJeu}h sur $nomJeu (minimum 1h requis).")
+            return null
+        }
+
+        return EvaluationEvent.newBuilder()
+            .setPseudo(joueur.pseudo)
+            .setNomJeu(nomJeu)
+            .setNote(note)
+            .setCommentaire(commentaire)
+            .setTimestamp(System.currentTimeMillis())
+            .build()
+    }
+
+    /**
+     * Crée une réaction (Like/Dislike) sur le commentaire d'un autre joueur.
+     */
+    fun reagirAUnCommentaire(pseudoAuteur: String, utile: Boolean): ReactionEvent {
+        return ReactionEvent.newBuilder()
+            .setPseudoAuteurReaction(joueur.pseudo)
+            .setPseudoCible(pseudoAuteur)
+            .setEstUtile(utile)
+            .setTimestamp(System.currentTimeMillis())
+            .build()
+    }
+
+    /**
+     * Enregistre l'intention de consulter le profil d'un autre joueur.
+     */
+    fun consulterProfil(pseudoCible: String): ConsulterProfilEvent {
+        return ConsulterProfilEvent.newBuilder()
+            .setPseudoVisiteur(joueur.pseudo)
+            .setPseudoConsulte(pseudoCible)
             .setTimestamp(System.currentTimeMillis())
             .build()
     }

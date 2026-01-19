@@ -1,0 +1,12 @@
+{
+        "type": "record",
+        "name": "EvaluationEvent",
+        "namespace": "com.projet.joueur",
+        "fields": [
+        {"name": "pseudo", "type": "string"},
+        {"name": "nomJeu", "type": "string"},
+        {"name": "note", "type": "int"},
+        {"name": "commentaire", "type": "string"},
+        {"name": "timestamp", "type": "long"}
+        ]
+        }

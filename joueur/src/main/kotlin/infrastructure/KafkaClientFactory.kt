@@ -1,5 +1,5 @@
 package infrastructure
-import com.projet.joueur.AchatJeuEvent
+import com.projet.joueur.*
 
 import org.apache.kafka.clients.producer.KafkaProducer
 import org.apache.kafka.clients.producer.ProducerConfig
@@ -12,7 +12,6 @@ import org.apache.kafka.common.serialization.StringDeserializer
 import io.confluent.kafka.serializers.KafkaAvroSerializer
 import io.confluent.kafka.serializers.KafkaAvroDeserializer
 import java.util.*
-import com.projet.joueur.TempsJeuEvent
 
 
 object KafkaClientFactory {
@@ -60,4 +59,11 @@ object KafkaClientFactory {
     fun createTempsJeuProducer(): KafkaProducer<String, TempsJeuEvent> {
         return KafkaProducer<String, TempsJeuEvent>(getCommonProps())
     }
+
+    @JvmStatic
+    fun createEvaluationProducer() = KafkaProducer<String, EvaluationEvent>(getCommonProps())
+    @JvmStatic
+    fun createReactionProducer() = KafkaProducer<String, ReactionEvent>(getCommonProps())
+    @JvmStatic
+    fun createConsultationProducer() = KafkaProducer<String, ConsulterProfilEvent>(getCommonProps())
 }

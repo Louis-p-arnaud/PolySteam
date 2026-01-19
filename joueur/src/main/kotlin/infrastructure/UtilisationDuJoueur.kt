@@ -79,6 +79,7 @@ class UtilisationDuJoueur {
             menuPrincipal(utilisateurConnecte, sc)
         }
 
+        //TODO: Compléter les options du menu principal en ajoutant notemment l'ajout de commentaire, la consultation de profil, l'evaluation de jeu etc.
         private fun menuPrincipal(joueur: Joueur, sc: Scanner) {
             val engine = Evenement(joueur)
             var continuer = true

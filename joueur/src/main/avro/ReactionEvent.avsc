@@ -1,0 +1,11 @@
+{
+        "type": "record",
+        "name": "ReactionEvent",
+        "namespace": "com.projet.joueur",
+        "fields": [
+        {"name": "pseudoAuteurReaction", "type": "string"},
+        {"name": "pseudoCible", "type": "string"},
+        {"name": "estUtile", "type": "boolean"},
+        {"name": "timestamp", "type": "long"}
+        ]
+        }

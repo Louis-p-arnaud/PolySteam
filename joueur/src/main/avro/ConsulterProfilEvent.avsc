@@ -1,0 +1,10 @@
+{
+        "type": "record",
+        "name": "ConsulterProfilEvent",
+        "namespace": "com.projet.joueur",
+        "fields": [
+        {"name": "pseudoVisiteur", "type": "string"},
+        {"name": "pseudoConsulte", "type": "string"},
+        {"name": "timestamp", "type": "long"}
+        ]
+        }
