@@ -12,6 +12,8 @@ import org.apache.kafka.common.serialization.StringDeserializer
 import io.confluent.kafka.serializers.KafkaAvroSerializer
 import io.confluent.kafka.serializers.KafkaAvroDeserializer
 import java.util.*
+import com.projet.joueur.TempsJeuEvent
+
 
 object KafkaClientFactory {
     private const val BOOTSTRAP_SERVERS = "localhost:9092"
@@ -21,6 +23,8 @@ object KafkaClientFactory {
         val props = Properties()
         props[ProducerConfig.BOOTSTRAP_SERVERS_CONFIG] = BOOTSTRAP_SERVERS
         props["schema.registry.url"] = SCHEMA_REGISTRY_URL
+        props[ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG] = org.apache.kafka.common.serialization.StringSerializer::class.java.name
+        props[ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG] = io.confluent.kafka.serializers.KafkaAvroSerializer::class.java.name
         return props
     }
 
@@ -50,5 +54,10 @@ object KafkaClientFactory {
         props[ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG] = StringSerializer::class.java
         props[ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG] = KafkaAvroSerializer::class.java
         return KafkaProducer(props)
+    }
+
+    @JvmStatic
+    fun createTempsJeuProducer(): KafkaProducer<String, TempsJeuEvent> {
+        return KafkaProducer<String, TempsJeuEvent>(getCommonProps())
     }
 }

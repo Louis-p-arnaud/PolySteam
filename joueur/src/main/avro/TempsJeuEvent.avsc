@@ -1,0 +1,11 @@
+{
+        "type": "record",
+        "name": "TempsJeuEvent",
+        "namespace": "com.projet.joueur",
+        "fields": [
+        {"name": "pseudo", "type": "string"},
+        {"name": "nomJeu", "type": "string"},
+        {"name": "heuresAjoutees", "type": "float"},
+        {"name": "timestamp", "type": "long"}
+        ]
+        }

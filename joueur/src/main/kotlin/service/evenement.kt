@@ -2,6 +2,7 @@ package service
 
 import model.Jeux
 import model.Joueur
+import com.projet.joueur.TempsJeuEvent
 
 class Evenement(private val joueur: Joueur) {
 
@@ -23,6 +24,23 @@ class Evenement(private val joueur: Joueur) {
         } else {
             println("Action refusée : conditions non remplies.")
         }
+    }
+
+    fun simulerSessionDeJeu(jeu: Jeux, heures: Float): TempsJeuEvent {
+        // Mise à jour locale du temps de jeu (Logique Métier)
+        val tempsActuel = joueur.mapTempsDeJeux[jeu.nomJeux] ?: 0f
+        joueur.mapTempsDeJeux[jeu.nomJeux] = tempsActuel + heures
+
+        println("🎮 ${joueur.pseudo} a joué à ${jeu.nomJeux} pendant $heures h.")
+        println("⏳ Temps total sur ce jeu : ${joueur.mapTempsDeJeux[jeu.nomJeux]} h.")
+
+        // Création de l'objet Avro pour informer la plateforme
+        return TempsJeuEvent.newBuilder()
+            .setPseudo(joueur.pseudo)
+            .setNomJeu(jeu.nomJeux)
+            .setHeuresAjoutees(heures)
+            .setTimestamp(System.currentTimeMillis())
+            .build()
     }
 
 

@@ -90,7 +90,8 @@ class UtilisationDuJoueur {
                 println("3. Afficher mon flux d'informations")
                 println("4. Évaluer/Commenter un jeu")
                 println("5. Liker/Disliker un commentaire")
-                println("6. Se déconnecter")
+                println("6. Jouer à un jeu (Simuler du temps)")
+                println("7. Se déconnecter")
                 print("> ")
 
                 when (sc.nextLine()) {
@@ -112,7 +113,24 @@ class UtilisationDuJoueur {
                         println("1. Liker | 2. Disliker")
                         if(sc.nextLine() == "1") engine.LikerCommentaireJeu() else engine.DislikerCommentaireJeu() //
                     }
-                    "6" -> continuer = false
+                    "6" -> {
+                        print("À quel jeu jouez-vous ? ")
+                        val nomJeu = sc.nextLine()
+                        print("Combien d'heures ? ")
+                        val h = sc.nextLine().toFloatOrNull() ?: 0f
+
+                        val jeu = Jeux(nomJeu, 0, emptyList())
+                        val event = engine.simulerSessionDeJeu(jeu, h)
+
+                        // Envoi via Kafka (le Producer)
+                        try {
+                            val producer = KafkaClientFactory.createTempsJeuProducer()
+                            producer.send(ProducerRecord("flux-temps-jeu", joueur.pseudo, event))
+                        } catch (e: Exception) {
+                            println("⚠️ Kafka non disponible, temps mis à jour uniquement en local.")
+                        }
+                    }
+                    "7" -> continuer = false
                 }
             }
             run() // Retour à l'écran de connexion
