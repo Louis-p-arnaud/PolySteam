@@ -2,10 +2,9 @@ package model;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.UUID;
 
 public class JeuCatalogue {
-    private UUID id;
+    private String id;
     private String titre;
     private String editeur;
     private String plateforme; // PC, PS5, Xbox, etc.
@@ -21,8 +20,10 @@ public class JeuCatalogue {
     private List<Evaluation> evaluationsJoueurs;
 
     // Constructeur et Getters/Setters
+
+    // Constructeur sans ID (pour création depuis l'application)
     public JeuCatalogue(String titre, String editeur, String plateforme, List<String> genres, double prixEditeur) {
-        this.id = UUID.randomUUID();
+        this.id = null; // Sera défini par la BDD
         this.titre = titre;
         this.editeur = editeur;
         this.plateforme = plateforme;
@@ -35,8 +36,28 @@ public class JeuCatalogue {
         this.evaluationsJoueurs = new ArrayList<>();
     }
 
-    public UUID getId() {
+    // Constructeur avec ID (pour chargement depuis la BDD)
+    public JeuCatalogue(String id, String titre, String editeur, String plateforme, List<String> genres,
+                        String versionActuelle, boolean versionAnticipee, double prixEditeur, double prixActuel) {
+        this.id = id;
+        this.titre = titre;
+        this.editeur = editeur;
+        this.plateforme = plateforme;
+        this.genres = genres != null ? genres : new ArrayList<>();
+        this.versionActuelle = versionActuelle;
+        this.versionAnticipee = versionAnticipee;
+        this.prixEditeur = prixEditeur;
+        this.prixActuel = prixActuel;
+        this.historiqueCorrectifs = new ArrayList<>();
+        this.evaluationsJoueurs = new ArrayList<>();
+    }
+
+    public String getId() {
         return id;
+    }
+
+    public void setId(String id) {
+        this.id = id;
     }
 
     public String getTitre() {
@@ -44,6 +65,10 @@ public class JeuCatalogue {
     }
 
     public String getEditeur() {
+        return editeur;
+    }
+
+    public String getNomEditeur() {
         return editeur;
     }
 
@@ -67,6 +92,10 @@ public class JeuCatalogue {
 
     public boolean isVersionAnticipee() {
         return versionAnticipee;
+    }
+
+    public void setVersionAnticipee(boolean versionAnticipee) {
+        this.versionAnticipee = versionAnticipee;
     }
 
     public List<String> getHistoriqueCorrectifs() {

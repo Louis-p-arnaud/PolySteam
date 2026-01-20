@@ -60,7 +60,19 @@ public class Evaluation {
         return nombreVotesUtile;
     }
 
+    public void setNombreVotesUtile(int nombreVotesUtile) {
+        this.nombreVotesUtile = nombreVotesUtile;
+    }
+
     public int getNombreVotesPasUtile() {
         return nombreVotesPasUtile;
+    }
+
+    public void setNombreVotesPasUtile(int nombreVotesPasUtile) {
+        this.nombreVotesPasUtile = nombreVotesPasUtile;
+    }
+
+    public String getJoueurPseudo() {
+        return pseudoJoueur;
     }
 }

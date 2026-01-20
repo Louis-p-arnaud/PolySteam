@@ -1,6 +1,5 @@
 package model;
 
-import kafka.IncidentEventProducer;
 import service.CatalogueService;
 import service.PricingService;
 
@@ -14,15 +13,14 @@ import java.util.stream.Collectors;
 public class Plateforme {
     private String nom;
     private Map<String, Joueur> joueurs; // key = pseudo
-    private Map<UUID, Editeur> editeurs; // key = id
-    private Map<UUID, JeuCatalogue> catalogue; // key = id jeu
+    private Map<String, Editeur> editeurs; // key = id
+    private Map<String, JeuCatalogue> catalogue; // key = id jeu
     private List<RapportIncident> rapportsIncidents;
     private List<Patch> patches;
-    private Map<UUID, List<Extension>> extensions; // key = id jeu parent
+    private Map<String, List<Extension>> extensions; // key = id jeu parent
 
     private CatalogueService catalogueService;
     private PricingService pricingService;
-    private IncidentEventProducer incidentProducer;
 
     public Plateforme(String nom) {
         this.nom = nom;
@@ -34,14 +32,6 @@ public class Plateforme {
         this.extensions = new HashMap<>();
         this.catalogueService = new CatalogueService();
         this.pricingService = new PricingService();
-
-        // Initialiser le producer Kafka (peut être désactivé si Kafka n'est pas lancé)
-        try {
-            this.incidentProducer = new IncidentEventProducer();
-        } catch (Exception e) {
-            System.err.println("⚠️  Kafka non disponible, les événements ne seront pas publiés: " + e.getMessage());
-            this.incidentProducer = null;
-        }
     }
 
     // === GESTION DES JOUEURS ===
@@ -51,7 +41,8 @@ public class Plateforme {
             System.out.println("❌ Le pseudo '" + joueur.getPseudo() + "' est déjà pris.");
         } else {
             joueurs.put(joueur.getPseudo(), joueur);
-            System.out.println("✅ Joueur inscrit : " + joueur.getPseudo());
+            // Message désactivé pour éviter le spam lors du chargement depuis la BDD
+            // System.out.println("✅ Joueur inscrit : " + joueur.getPseudo());
         }
     }
 
@@ -185,8 +176,9 @@ public class Plateforme {
 
     public void ajouterEditeur(Editeur editeur) {
         editeurs.put(editeur.getId(), editeur);
-        System.out.println("✅ Éditeur ajouté : " + editeur.getNom() +
-            (editeur.isEstIndependant() ? " (Indépendant)" : " (Entreprise)"));
+        // Message désactivé pour éviter le spam lors du chargement depuis la BDD
+        // System.out.println("✅ Éditeur ajouté : " + editeur.getNom() +
+        //     (editeur.isEstIndependant() ? " (Indépendant)" : " (Entreprise)"));
     }
 
     public void publierJeu(JeuCatalogue jeu) {
@@ -200,8 +192,9 @@ public class Plateforme {
             }
         }
 
-        System.out.println("✅ Jeu publié dans le catalogue : " + jeu.getTitre() +
-            " (" + jeu.getPlateforme() + ") - " + jeu.getPrixActuel() + "€");
+        // Message désactivé pour éviter le spam lors du chargement depuis la BDD
+        // System.out.println("✅ Jeu publié dans le catalogue : " + jeu.getTitre() +
+        //     " (" + jeu.getPlateforme() + ") - " + jeu.getPrixActuel() + "€");
     }
 
     public void afficherCatalogue() {
@@ -482,47 +475,29 @@ public class Plateforme {
 
     public void rapporterIncident(RapportIncident rapport) {
         rapportsIncidents.add(rapport);
-        System.out.println("🐛 Rapport d'incident enregistré pour " + rapport.getTitreJeu() +
+        // Récupérer le jeu pour afficher son titre
+        JeuCatalogue jeu = getJeuById(rapport.getJeuId());
+        String titreJeu = jeu != null ? jeu.getTitre() : "Jeu inconnu";
+
+        System.out.println("🐛 Rapport d'incident enregistré pour " + titreJeu +
             " (v" + rapport.getVersionJeu() + ")");
-        System.out.println("   ID: " + rapport.getIdIncident());
-        System.out.println("   Joueur: " + rapport.getPseudoJoueur());
+        System.out.println("   ID: " + rapport.getId());
+        System.out.println("   Joueur: " + rapport.getJoueurPseudo());
         System.out.println("   Description: " + rapport.getDescriptionErreur());
-
-        // Publier l'événement sur Kafka pour l'éditeur
-        if (incidentProducer != null) {
-            // Récupérer le jeu pour obtenir l'ID de l'éditeur
-            JeuCatalogue jeu = getJeuParTitre(rapport.getTitreJeu());
-            if (jeu != null) {
-                // Trouver l'UUID de l'éditeur
-                String editeurId = null;
-                for (Editeur editeur : editeurs.values()) {
-                    if (editeur.getNom().equals(jeu.getEditeur())) {
-                        editeurId = editeur.getId().toString();
-                        break;
-                    }
-                }
-
-                if (editeurId != null) {
-                    incidentProducer.publierIncident(
-                        jeu.getId().toString(),
-                        rapport.getTitreJeu(),
-                        editeurId,
-                        rapport.getVersionJeu(),
-                        rapport.getOs(),
-                        rapport.getPseudoJoueur(),
-                        rapport.getDescriptionErreur()
-                    );
-                } else {
-                    System.err.println("⚠️  Impossible de trouver l'éditeur pour publier l'événement Kafka");
-                }
-            }
-        }
     }
 
-    public void afficherRapportsIncidentsPourJeu(String titreJeu) {
+    // Alias pour compatibilité
+    public void signalerIncident(RapportIncident rapport) {
+        rapporterIncident(rapport);
+    }
+
+    public void afficherRapportsIncidentsPourJeu(String jeuId) {
         List<RapportIncident> rapports = rapportsIncidents.stream()
-            .filter(r -> r.getTitreJeu().equalsIgnoreCase(titreJeu))
+            .filter(r -> r.getJeuId().equals(jeuId))
             .collect(Collectors.toList());
+
+        JeuCatalogue jeu = getJeuById(jeuId);
+        String titreJeu = jeu != null ? jeu.getTitre() : "Jeu inconnu";
 
         System.out.println("\n═══════════════════════════════════════");
         System.out.println("🐛 RAPPORTS D'INCIDENTS : " + titreJeu);
@@ -530,9 +505,9 @@ public class Plateforme {
         System.out.println("Total : " + rapports.size() + " rapport(s)\n");
 
         for (RapportIncident r : rapports) {
-            System.out.println("ID: " + r.getIdIncident());
-            System.out.println("Version: " + r.getVersionJeu() + " | OS: " + r.getOs());
-            System.out.println("Joueur: " + r.getPseudoJoueur());
+            System.out.println("ID: " + r.getId());
+            System.out.println("Version: " + r.getVersionJeu() + " | Plateforme: " + r.getPlateforme());
+            System.out.println("Joueur: " + r.getJoueurPseudo());
             System.out.println("Date: " + r.getDateSurvenue());
             System.out.println("Erreur: " + r.getDescriptionErreur());
             System.out.println("---");
@@ -663,18 +638,35 @@ public class Plateforme {
         return joueurs;
     }
 
-    public Map<UUID, JeuCatalogue> getCatalogue() {
+    public List<Joueur> getJoueursList() {
+        return new ArrayList<>(joueurs.values());
+    }
+
+    public Joueur getJoueurByPseudo(String pseudo) {
+        return joueurs.get(pseudo);
+    }
+
+    public Map<String, JeuCatalogue> getCatalogue() {
         return catalogue;
     }
 
-    /**
-     * Ferme proprement les ressources (notamment le producer Kafka)
-     * À appeler à la fin de l'application
-     */
-    public void fermer() {
-        if (incidentProducer != null) {
-            incidentProducer.close();
-        }
+    public List<JeuCatalogue> getCatalogueList() {
+        return new ArrayList<>(catalogue.values());
+    }
+
+    public JeuCatalogue getJeuById(String id) {
+        return catalogue.get(id);
+    }
+
+    public List<Editeur> getEditeursList() {
+        return new ArrayList<>(editeurs.values());
+    }
+
+    public Editeur getEditeurByNom(String nom) {
+        return editeurs.values().stream()
+            .filter(e -> e.getNom().equalsIgnoreCase(nom))
+            .findFirst()
+            .orElse(null);
     }
 }
 

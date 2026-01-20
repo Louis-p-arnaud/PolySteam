@@ -45,6 +45,10 @@ public class Joueur {
         return dateNaissance;
     }
 
+    public int getAge() {
+        return LocalDate.now().getYear() - dateNaissance.getYear();
+    }
+
     public LocalDate getDateInscription() {
         return dateInscription;
     }
