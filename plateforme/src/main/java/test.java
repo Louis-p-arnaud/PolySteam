@@ -1,5 +1,6 @@
 import model.*;
 import kafka.IncidentEventProducer;
+import kafka.EvaluationEventProducer;
 
 import java.time.LocalDate;
 import java.util.Arrays;
@@ -399,15 +400,97 @@ public class test {
             );
 
 
-            System.out.println("\n✅ Tous les événements ont été publiés sur Kafka !");
-            System.out.println("💡 Vérifiez le topic 'plateforme.incidents' sur Kafka UI");
+            System.out.println("\n✅ Tous les événements d'incidents ont été publiés sur Kafka !");
+            System.out.println("💡 Vérifiez le topic 'plateforme.incidents' sur Kafka UI: http://localhost:8080");
 
             // Fermer proprement le producer
             kafkaProducer.close();
 
         } catch (Exception e) {
-            System.err.println("❌ Erreur lors du test Kafka: " + e.getMessage());
+            System.err.println("❌ Erreur lors du test Kafka (Incidents): " + e.getMessage());
             System.err.println("💡 Assurez-vous que Kafka est démarré avec: docker-compose -f docker-compose-kafka.yml up -d");
+            e.printStackTrace();
+        }
+
+        // ====================================
+        // TEST KAFKA - ÉVÉNEMENTS D'ÉVALUATION
+        // ====================================
+        System.out.println("\n╔════════════════════════════════════════════╗");
+        System.out.println("║   📝 TEST KAFKA - ÉVALUATIONS DE JEUX 📝   ║");
+        System.out.println("╚════════════════════════════════════════════╝\n");
+
+        try {
+            System.out.println("🔌 Initialisation du Kafka Producer (Évaluations)...");
+            EvaluationEventProducer evaluationProducer = new EvaluationEventProducer();
+
+            // Test 1 : Évaluation positive de Pro Evolution Soccer
+            System.out.println("\n📝 Test 1 : Publication d'une évaluation positive...");
+            evaluationProducer.publierEvaluation(
+                proEvolution.getId(),                     // jeuId
+                proEvolution.getTitre(),                  // titreJeu
+                "1",                                      // editeurId (Konami)
+                "MaximilienTest",                         // pseudoJoueur
+                9,                                        // note sur 10
+                "Excellent jeu de football ! Les graphismes sont incroyables et le gameplay est très fluide.", // commentaire
+                1200,                                     // 20 heures de jeu
+                "1.0.5",                                  // versionJeu
+                true,                                     // recommande
+                java.util.Arrays.asList("Graphismes", "Gameplay", "Réalisme"), // aspects positifs
+                java.util.Arrays.asList("Quelques bugs mineurs")  // aspects négatifs
+            );
+
+            // Test 2 : Évaluation mitigée de Captain Tsubasa
+            System.out.println("\n📝 Test 2 : Publication d'une évaluation mitigée...");
+            evaluationProducer.publierEvaluation(
+                captainTsubasa.getId(),                   // jeuId
+                captainTsubasa.getTitre(),                // titreJeu
+                "1",                                      // editeurId (Konami)
+                "AlexTest",                               // pseudoJoueur
+                6,                                        // note sur 10
+                "Bon concept mais des problèmes techniques gâchent l'expérience.", // commentaire
+                450,                                      // 7.5 heures de jeu
+                "2.1.0",                                  // versionJeu
+                false,                                    // ne recommande pas
+                java.util.Arrays.asList("Nostalgique", "Animations"),  // aspects positifs
+                java.util.Arrays.asList("Bugs graphiques", "Prix élevé", "Manque de contenu") // aspects négatifs
+            );
+
+            // Test 3 : Évaluation très positive d'un jeu indie
+            System.out.println("\n📝 Test 3 : Publication d'une évaluation très positive (jeu indie)...");
+            evaluationProducer.publierEvaluation(
+                pixelQuest.getId(),                       // jeuId
+                pixelQuest.getTitre(),                    // titreJeu
+                "2",                                      // editeurId (Pixel Dreams Studio)
+                "JulieTest",                              // pseudoJoueur
+                10,                                       // note sur 10
+                "Un chef-d'œuvre ! L'histoire est captivante et l'ambiance pixel art est parfaite. Bravo aux développeurs indépendants !", // commentaire
+                3600,                                     // 60 heures de jeu
+                "0.9.2",                                  // versionJeu
+                true,                                     // recommande fortement
+                java.util.Arrays.asList("Histoire", "Ambiance", "Musique", "Prix abordable", "Originalité"), // aspects positifs
+                java.util.Arrays.asList()                 // aucun aspect négatif
+            );
+
+            // Test 4 : Évaluation rapide (version simplifiée)
+            System.out.println("\n📝 Test 4 : Publication d'une évaluation simple...");
+            evaluationProducer.publierEvaluationSimple(
+                proEvolution.getId(),                     // jeuId
+                proEvolution.getTitre(),                  // titreJeu
+                "1",                                      // editeurId
+                "SophieTest",                             // pseudoJoueur
+                8,                                        // note
+                "Très bon jeu, je recommande !",         // commentaire
+                true                                      // recommande
+            );
+
+            System.out.println("\n✅ Tous les événements d'évaluation ont été publiés sur Kafka !");
+            System.out.println("💡 Vérifiez le topic 'plateforme.evaluations' sur Kafka UI: http://localhost:8080");
+
+            // Fermer proprement le producer
+            evaluationProducer.close();
+
+        } catch (Exception e) {
+            System.err.println("❌ Erreur lors du test Kafka (Évaluations): " + e.getMessage());
             e.printStackTrace();
         }
 
