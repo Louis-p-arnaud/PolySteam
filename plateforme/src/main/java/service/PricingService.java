@@ -40,19 +40,19 @@ public class PricingService {
         if (noteMoyenne >= SEUIL_EXCELLENT) {
             nouveauPrix = prixBase * AUGMENTATION_EXCELLENT;
             System.out.println("📈 Prix ajusté (+15%) pour '" + jeu.getTitre() + "' (note: " +
-                String.format("%.1f", noteMoyenne) + "/10)");
+                    String.format("%.1f", noteMoyenne) + "/10)");
         } else if (noteMoyenne >= SEUIL_BON) {
             nouveauPrix = prixBase * AUGMENTATION_BON;
             System.out.println("📈 Prix ajusté (+5%) pour '" + jeu.getTitre() + "' (note: " +
-                String.format("%.1f", noteMoyenne) + "/10)");
+                    String.format("%.1f", noteMoyenne) + "/10)");
         } else if (noteMoyenne >= SEUIL_MOYEN) {
             nouveauPrix = prixBase * REDUCTION_MOYEN;
             System.out.println("📉 Prix réduit (-10%) pour '" + jeu.getTitre() + "' (note: " +
-                String.format("%.1f", noteMoyenne) + "/10)");
+                    String.format("%.1f", noteMoyenne) + "/10)");
         } else {
             nouveauPrix = prixBase * REDUCTION_MAUVAIS;
             System.out.println("📉 Prix fortement réduit (-25%) pour '" + jeu.getTitre() + "' (note: " +
-                String.format("%.1f", noteMoyenne) + "/10)");
+                    String.format("%.1f", noteMoyenne) + "/10)");
         }
 
         // Arrondir à 2 décimales

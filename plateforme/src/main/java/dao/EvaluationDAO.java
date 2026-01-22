@@ -35,10 +35,10 @@ public class EvaluationDAO {
 
             while (rs.next()) {
                 Evaluation eval = new Evaluation(
-                    rs.getString("joueur_pseudo"),
-                    rs.getString("titre_jeu"),
-                    rs.getInt("note"),
-                    rs.getString("commentaire")
+                        rs.getString("joueur_pseudo"),
+                        rs.getString("titre_jeu"),
+                        rs.getInt("note"),
+                        rs.getString("commentaire")
                 );
                 eval.setNombreVotesUtile(rs.getInt("nombre_votes_utile"));
                 eval.setNombreVotesPasUtile(rs.getInt("nombre_votes_pas_utile"));
@@ -124,8 +124,8 @@ public class EvaluationDAO {
 
             // Mettre à jour le compteur
             String sqlUpdate = estUtile ?
-                "UPDATE evaluation SET nombre_votes_utile = nombre_votes_utile + 1 WHERE id = ?" :
-                "UPDATE evaluation SET nombre_votes_pas_utile = nombre_votes_pas_utile + 1 WHERE id = ?";
+                    "UPDATE evaluation SET nombre_votes_utile = nombre_votes_utile + 1 WHERE id = ?" :
+                    "UPDATE evaluation SET nombre_votes_pas_utile = nombre_votes_pas_utile + 1 WHERE id = ?";
 
             try (PreparedStatement pstmt = conn.prepareStatement(sqlUpdate)) {
                 pstmt.setInt(1, evaluationId);
@@ -180,4 +180,3 @@ public class EvaluationDAO {
         return 0;
     }
 }
-

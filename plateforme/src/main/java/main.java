@@ -359,8 +359,8 @@ public class main {
         System.out.printf("   📝 Éditeur: %s\n", jeu.getNomEditeur());
         System.out.printf("   🎯 Plateforme: %s\n", jeu.getPlateforme());
         System.out.printf("   📌 Version: %s%s\n",
-            jeu.getVersionActuelle(),
-            jeu.isVersionAnticipee() ? " (Accès anticipé)" : "");
+                jeu.getVersionActuelle(),
+                jeu.isVersionAnticipee() ? " (Accès anticipé)" : "");
         System.out.printf("   🏷️  Genres: %s\n", String.join(", ", jeu.getGenres()));
         System.out.printf("   💰 Prix: %.2f€\n", jeu.getPrixActuel());
 
@@ -406,7 +406,7 @@ public class main {
             System.out.printf("👤 %s - Note: %d/10\n", eval.getJoueurPseudo(), eval.getNote());
             System.out.printf("💬 %s\n", eval.getCommentaire());
             System.out.printf("👍 %d utile | 👎 %d pas utile\n",
-                eval.getNombreVotesUtile(), eval.getNombreVotesPasUtile());
+                    eval.getNombreVotesUtile(), eval.getNombreVotesPasUtile());
             System.out.println("─────────────────────────────────────────────");
         }
         System.out.println();
@@ -463,7 +463,7 @@ public class main {
         for (int i = 0; i < joueurs.size(); i++) {
             Joueur joueur = joueurs.get(i);
             System.out.printf("%d. %s (%s %s)\n",
-                i + 1, joueur.getPseudo(), joueur.getPrenom(), joueur.getNom());
+                    i + 1, joueur.getPseudo(), joueur.getPrenom(), joueur.getNom());
             System.out.printf("   🎂 Âge: %d ans\n", joueur.getAge());
             System.out.printf("   👥 Amis: %d\n", joueur.getAmis().size());
             System.out.println();
@@ -550,7 +550,7 @@ public class main {
             Joueur ami = plateforme.getJoueurByPseudo(pseudoAmi);
             if (ami != null) {
                 System.out.printf("%d. %s (%s %s)\n",
-                    i + 1, ami.getPseudo(), ami.getPrenom(), ami.getNom());
+                        i + 1, ami.getPseudo(), ami.getPrenom(), ami.getNom());
             }
         }
         System.out.println();
@@ -605,9 +605,9 @@ public class main {
         for (int i = 0; i < editeurs.size(); i++) {
             Editeur editeur = editeurs.get(i);
             System.out.printf("%d. %s %s\n",
-                i + 1,
-                editeur.getNom(),
-                editeur.isEstIndependant() ? "🌟 (Indépendant)" : "");
+                    i + 1,
+                    editeur.getNom(),
+                    editeur.isEstIndependant() ? "🌟 (Indépendant)" : "");
             System.out.printf("   🎮 Jeux publiés: %d\n", editeur.getJeuxPublies().size());
             System.out.println();
         }
@@ -627,8 +627,8 @@ public class main {
 
         // Récupérer les jeux de cet éditeur depuis le catalogue de la plateforme
         List<JeuCatalogue> jeux = plateforme.getCatalogueList().stream()
-            .filter(j -> j.getNomEditeur().equals(nom))
-            .collect(java.util.stream.Collectors.toList());
+                .filter(j -> j.getNomEditeur().equals(nom))
+                .collect(java.util.stream.Collectors.toList());
 
         if (jeux.isEmpty()) {
             System.out.println("❌ Cet éditeur n'a pas encore publié de jeux.\n");
@@ -707,7 +707,7 @@ public class main {
             RapportIncident incident = incidents.get(i);
             System.out.printf("%d. Signalé par: %s\n", i + 1, incident.getJoueurPseudo());
             System.out.printf("   📌 Version: %s | Plateforme: %s\n",
-                incident.getVersionJeu(), incident.getPlateforme());
+                    incident.getVersionJeu(), incident.getPlateforme());
             System.out.printf("   📝 %s\n", incident.getDescriptionErreur());
             System.out.println("─────────────────────────────────────────────");
         }
@@ -747,7 +747,7 @@ public class main {
         String description = scanner.nextLine();
 
         RapportIncident incident = new RapportIncident(
-            pseudo, jeu.getId(), version, jeu.getPlateforme(), description
+                pseudo, jeu.getId(), version, jeu.getPlateforme(), description
         );
 
         if (incidentDAO.insert(incident)) {
@@ -792,7 +792,7 @@ public class main {
 
         if (meilleurJeu != null) {
             System.out.printf("\n⭐ Jeu le mieux noté : %s (%.1f/10)\n",
-                meilleurJeu.getTitre(), meilleureNote);
+                    meilleurJeu.getTitre(), meilleureNote);
         }
 
         System.out.println();
@@ -840,4 +840,3 @@ public class main {
         }
     }
 }
-

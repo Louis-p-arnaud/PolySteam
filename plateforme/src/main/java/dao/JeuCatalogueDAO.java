@@ -32,16 +32,15 @@ public class JeuCatalogueDAO {
             while (rs.next()) {
                 String jeuId = rs.getString("id");
                 JeuCatalogue jeu = new JeuCatalogue(
-                    jeuId,
                     rs.getString("titre"),
                     rs.getString("editeur_nom"),
                     rs.getString("plateforme"),
                     getGenres(jeuId),
-                    rs.getString("version_actuelle"),
-                    rs.getBoolean("est_version_anticipee"),
-                    rs.getDouble("prix_actuel"), // prix_editeur = prix_actuel pour simplifier
                     rs.getDouble("prix_actuel")
                 );
+                jeu.setId(jeuId);
+                jeu.setVersionActuelle(rs.getString("version_actuelle"));
+                jeu.setVersionAnticipee(rs.getBoolean("est_version_anticipee"));
 
                 jeux.add(jeu);
             }
@@ -97,16 +96,15 @@ public class JeuCatalogueDAO {
 
             if (rs.next()) {
                 JeuCatalogue jeu = new JeuCatalogue(
-                    id,
                     rs.getString("titre"),
                     rs.getString("editeur_nom"),
                     rs.getString("plateforme"),
                     getGenres(id),
-                    rs.getString("version_actuelle"),
-                    rs.getBoolean("est_version_anticipee"),
-                    rs.getDouble("prix_actuel"),
                     rs.getDouble("prix_actuel")
                 );
+                jeu.setId(id);
+                jeu.setVersionActuelle(rs.getString("version_actuelle"));
+                jeu.setVersionAnticipee(rs.getBoolean("est_version_anticipee"));
                 return jeu;
             }
 
@@ -140,16 +138,15 @@ public class JeuCatalogueDAO {
             while (rs.next()) {
                 String jeuId = rs.getString("id");
                 JeuCatalogue jeu = new JeuCatalogue(
-                    jeuId,
                     rs.getString("titre"),
                     rs.getString("editeur_nom"),
                     rs.getString("plateforme"),
                     getGenres(jeuId),
-                    rs.getString("version_actuelle"),
-                    rs.getBoolean("est_version_anticipee"),
-                    rs.getDouble("prix_actuel"),
                     rs.getDouble("prix_actuel")
                 );
+                jeu.setId(jeuId);
+                jeu.setVersionActuelle(rs.getString("version_actuelle"));
+                jeu.setVersionAnticipee(rs.getBoolean("est_version_anticipee"));
 
                 jeux.add(jeu);
             }
@@ -178,7 +175,7 @@ public class JeuCatalogueDAO {
             """;
 
             try (PreparedStatement pstmt = conn.prepareStatement(sqlJeu)) {
-                pstmt.setString(1, jeu.getId());
+                pstmt.setString(1, jeu.getId().toString());
                 pstmt.setString(2, jeu.getTitre());
                 pstmt.setString(3, editeurId);
                 pstmt.setString(4, jeu.getPlateforme());
@@ -193,7 +190,7 @@ public class JeuCatalogueDAO {
             String sqlGenre = "INSERT INTO jeu_genre (jeu_id, genre) VALUES (?, ?)";
             try (PreparedStatement pstmt = conn.prepareStatement(sqlGenre)) {
                 for (String genre : jeu.getGenres()) {
-                    pstmt.setString(1, jeu.getId());
+                    pstmt.setString(1, jeu.getId().toString());
                     pstmt.setString(2, genre);
                     pstmt.executeUpdate();
                 }
@@ -203,7 +200,7 @@ public class JeuCatalogueDAO {
             String sqlEditeurJeu = "INSERT INTO editeur_jeu (editeur_id, jeu_id) VALUES (?, ?)";
             try (PreparedStatement pstmt = conn.prepareStatement(sqlEditeurJeu)) {
                 pstmt.setString(1, editeurId);
-                pstmt.setString(2, jeu.getId());
+                pstmt.setString(2, jeu.getId().toString());
                 pstmt.executeUpdate();
             }
 

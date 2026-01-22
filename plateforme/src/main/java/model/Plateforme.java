@@ -41,8 +41,7 @@ public class Plateforme {
             System.out.println("❌ Le pseudo '" + joueur.getPseudo() + "' est déjà pris.");
         } else {
             joueurs.put(joueur.getPseudo(), joueur);
-            // Message désactivé pour éviter le spam lors du chargement depuis la BDD
-            // System.out.println("✅ Joueur inscrit : " + joueur.getPseudo());
+            System.out.println("✅ Joueur inscrit : " + joueur.getPseudo());
         }
     }
 
@@ -176,9 +175,8 @@ public class Plateforme {
 
     public void ajouterEditeur(Editeur editeur) {
         editeurs.put(editeur.getId(), editeur);
-        // Message désactivé pour éviter le spam lors du chargement depuis la BDD
-        // System.out.println("✅ Éditeur ajouté : " + editeur.getNom() +
-        //     (editeur.isEstIndependant() ? " (Indépendant)" : " (Entreprise)"));
+        System.out.println("✅ Éditeur ajouté : " + editeur.getNom() +
+            (editeur.isEstIndependant() ? " (Indépendant)" : " (Entreprise)"));
     }
 
     public void publierJeu(JeuCatalogue jeu) {
@@ -192,9 +190,8 @@ public class Plateforme {
             }
         }
 
-        // Message désactivé pour éviter le spam lors du chargement depuis la BDD
-        // System.out.println("✅ Jeu publié dans le catalogue : " + jeu.getTitre() +
-        //     " (" + jeu.getPlateforme() + ") - " + jeu.getPrixActuel() + "€");
+        System.out.println("✅ Jeu publié dans le catalogue : " + jeu.getTitre() +
+            " (" + jeu.getPlateforme() + ") - " + jeu.getPrixActuel() + "€");
     }
 
     public void afficherCatalogue() {

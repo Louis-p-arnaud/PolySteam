@@ -20,8 +20,6 @@ public class JeuCatalogue {
     private List<Evaluation> evaluationsJoueurs;
 
     // Constructeur et Getters/Setters
-
-    // Constructeur sans ID (pour création depuis l'application)
     public JeuCatalogue(String titre, String editeur, String plateforme, List<String> genres, double prixEditeur) {
         this.id = null; // Sera défini par la BDD
         this.titre = titre;
@@ -32,22 +30,6 @@ public class JeuCatalogue {
         this.prixActuel = prixEditeur;
         this.versionActuelle = "1.0.0";
         this.versionAnticipee = false;
-        this.historiqueCorrectifs = new ArrayList<>();
-        this.evaluationsJoueurs = new ArrayList<>();
-    }
-
-    // Constructeur avec ID (pour chargement depuis la BDD)
-    public JeuCatalogue(String id, String titre, String editeur, String plateforme, List<String> genres,
-                        String versionActuelle, boolean versionAnticipee, double prixEditeur, double prixActuel) {
-        this.id = id;
-        this.titre = titre;
-        this.editeur = editeur;
-        this.plateforme = plateforme;
-        this.genres = genres != null ? genres : new ArrayList<>();
-        this.versionActuelle = versionActuelle;
-        this.versionAnticipee = versionAnticipee;
-        this.prixEditeur = prixEditeur;
-        this.prixActuel = prixActuel;
         this.historiqueCorrectifs = new ArrayList<>();
         this.evaluationsJoueurs = new ArrayList<>();
     }

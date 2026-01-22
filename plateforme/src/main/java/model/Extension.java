@@ -17,19 +17,8 @@ public class Extension {
     // Évaluations de l'extension
     private List<Evaluation> evaluations;
 
-    // Constructeur sans ID (pour création depuis l'application)
     public Extension(String titre, double prix, String versionRequise, String jeuParent) {
         this.id = null; // Sera défini par la BDD
-        this.titre = titre;
-        this.prix = prix;
-        this.versionJeuBaseRequise = versionRequise;
-        this.titreJeuParent = jeuParent;
-        this.evaluations = new ArrayList<>();
-    }
-
-    // Constructeur avec ID (pour chargement depuis la BDD)
-    public Extension(String id, String titre, double prix, String versionRequise, String jeuParent) {
-        this.id = id;
         this.titre = titre;
         this.prix = prix;
         this.versionJeuBaseRequise = versionRequise;

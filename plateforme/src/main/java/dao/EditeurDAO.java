@@ -25,7 +25,6 @@ public class EditeurDAO {
 
             while (rs.next()) {
                 Editeur editeur = new Editeur(
-                    rs.getString("id"),
                     rs.getString("nom"),
                     rs.getBoolean("est_independant")
                 );
@@ -53,7 +52,6 @@ public class EditeurDAO {
 
             if (rs.next()) {
                 return new Editeur(
-                    rs.getString("id"),
                     rs.getString("nom"),
                     rs.getBoolean("est_independant")
                 );
@@ -75,7 +73,7 @@ public class EditeurDAO {
         try (Connection conn = DatabaseConfig.getConnection();
              PreparedStatement pstmt = conn.prepareStatement(sql)) {
 
-            pstmt.setString(1, editeur.getId());
+            pstmt.setString(1, editeur.getId().toString());
             pstmt.setString(2, editeur.getNom());
             pstmt.setBoolean(3, editeur.isEstIndependant());
 
