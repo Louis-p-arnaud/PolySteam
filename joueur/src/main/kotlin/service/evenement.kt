@@ -68,7 +68,7 @@ class Evenement(private val joueur: Joueur) {
     }
 
     fun inscrireJoueur(pseudo: String, mdp: String, nom: String, prenom: String, dateN: String): Boolean {
-        // 1. Vérification locale du mot de passe
+        // Vérification locale du mot de passe
         if (mdp.length < 8) {
             println("❌ Erreur : Le mot de passe doit contenir au moins 8 caractères.")
             return false
@@ -80,7 +80,7 @@ class Evenement(private val joueur: Joueur) {
 
         try {
             DriverManager.getConnection(url, user, password).use { conn ->
-                // 2. Vérification de l'unicité du pseudo (SELECT)
+                // Vérification de l'unicité du pseudo
                 val checkSql = "SELECT COUNT(*) FROM joueur WHERE pseudo = ?"
                 val checkStmt = conn.prepareStatement(checkSql)
                 checkStmt.setString(1, pseudo)
@@ -91,9 +91,7 @@ class Evenement(private val joueur: Joueur) {
                     return false
                 }
 
-                // 3. Insertion du nouveau compte (INSERT)
-                // Note : L'ERD contient pseudo, nom, prenom, date_naissance
-                // ✅ LA BONNE SYNTAXE :
+                // Insertion du nouveau compte
                 val insertSql = "INSERT INTO joueur (pseudo, nom, prenom, date_naissance) VALUES (?, ?, ?, ?::date)"
                 val insertStmt = conn.prepareStatement(insertSql)
                 insertStmt.setString(1, pseudo)
@@ -110,4 +108,102 @@ class Evenement(private val joueur: Joueur) {
             return false
         }
     }
+
+    fun acheterJeuParTitre(titreJeu: String): Boolean {
+        val url = "jdbc:postgresql://86.252.172.215:5432/polysteam"
+        val user = "polysteam_user"
+        val pass = "PolySteam2026!"
+
+        return try {
+            Class.forName("org.postgresql.Driver")
+            DriverManager.getConnection(url, user, pass).use { conn ->
+
+                // 1. Trouver l'ID et la VERSION ACTUELLE à partir du TITRE (Correction 'nom' -> 'titre')
+                val findIdSql = "SELECT id, version_actuelle FROM jeu_catalogue WHERE titre = ?"
+                val findIdStmt = conn.prepareStatement(findIdSql)
+                findIdStmt.setString(1, titreJeu)
+                val rsId = findIdStmt.executeQuery()
+
+                if (!rsId.next()) {
+                    println("❌ Le jeu '$titreJeu' n'existe pas dans le catalogue.")
+                    return false
+                }
+
+                val jeuId = rsId.getString("id")
+                val versionDuCatalogue = rsId.getString("version_actuelle") // On récupère la vraie version
+
+                // 2. Vérifier si le joueur possède déjà ce jeu
+                val checkSql = "SELECT COUNT(*) FROM jeu_possede WHERE joueur_pseudo = ? AND jeu_id = ?"
+                val checkStmt = conn.prepareStatement(checkSql)
+                checkStmt.setString(1, joueur.pseudo)
+                checkStmt.setString(2, jeuId)
+                val rsCheck = checkStmt.executeQuery()
+
+                if (rsCheck.next() && rsCheck.getInt(1) > 0) {
+                    println("❌ Vous possédez déjà '$titreJeu' !")
+                    return false
+                }
+
+                // 3. Insérer l'achat avec la version récupérée dynamiquement
+                val insertSql = """
+                INSERT INTO jeu_possede (joueur_pseudo, jeu_id, temps_jeu_minutes, version_installee) 
+                VALUES (?, ?, 0, ?)
+            """.trimIndent()
+
+                val insertStmt = conn.prepareStatement(insertSql)
+                insertStmt.setString(1, joueur.pseudo)
+                insertStmt.setString(2, jeuId)
+                insertStmt.setString(3, versionDuCatalogue) // Utilisation de la version du catalogue
+
+                insertStmt.executeUpdate()
+                println("💰 Achat réussi ! '$titreJeu' (v$versionDuCatalogue) est ajouté à votre bibliothèque.")
+                true
+            }
+        } catch (e: Exception) {
+            println("⚠️ Erreur lors de l'achat : ${e.message}")
+            false
+        }
+    }
+
+/*
+    fun acheterJeu(jeuId: String): Boolean {
+        val url = "jdbc:postgresql://86.252.172.215:5432/polysteam"
+        val user = "polysteam_user"
+        val pass = "PolySteam2026!"
+
+        return try {
+            Class.forName("org.postgresql.Driver")
+            DriverManager.getConnection(url, user, pass).use { conn ->
+
+                // Vérifier si le joueur possède déjà ce jeu
+                val checkSql = "SELECT COUNT(*) FROM jeu_possede WHERE joueur_pseudo = ? AND jeu_id = ?"
+                val checkStmt = conn.prepareStatement(checkSql)
+                checkStmt.setString(1, joueur.pseudo)
+                checkStmt.setString(2, jeuId)
+                val rs = checkStmt.executeQuery()
+
+                if (rs.next() && rs.getInt(1) > 0) {
+                    println("❌ Vous possédez déjà ce jeu !")
+                    return false
+                }
+
+                // Insérer l'achat dans la table de liaison
+                val insertSql = """
+                INSERT INTO jeu_possede (joueur_pseudo, jeu_id, temps_jeu_minutes, version_installee) 
+                VALUES (?, ?, 0, '1.0.0')
+            """.trimIndent()
+
+                val insertStmt = conn.prepareStatement(insertSql)
+                insertStmt.setString(1, joueur.pseudo)
+                insertStmt.setString(2, jeuId)
+
+                insertStmt.executeUpdate()
+                println("💰 Achat réussi ! Le jeu (ID: $jeuId) est maintenant dans votre bibliothèque.")
+                true
+            }
+        } catch (e: Exception) {
+            println("⚠️ Erreur lors de l'achat : ${e.message}")
+            false
+        }
+    }*/
 }
