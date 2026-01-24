@@ -7,44 +7,93 @@ import infrastructure.KafkaClientFactory
 import org.apache.kafka.clients.producer.ProducerRecord
 import java.sql.DriverManager
 import java.sql.SQLException
+import org.apache.kafka.clients.producer.KafkaProducer
+import java.util.Properties
+import java.util.Random
 
 class Evenement(private val joueur: Joueur) {
+
+
+
+    // Ajoutez cette fonction utilitaire dans votre classe Evenement
+    private fun creerConfigurationKafka(): Properties {
+        val props = Properties()
+        props["bootstrap.servers"] = "86.252.172.215:9092"
+        props["key.serializer"] = "org.apache.kafka.common.serialization.StringSerializer"
+        props["value.serializer"] = "org.apache.kafka.common.serialization.StringSerializer"
+        return props
+    }
 
     /**
      * Simule le lancement d'un jeu avec une probabilité de crash.
      * En cas de crash, un rapport est envoyé à Kafka pour les éditeurs.
      */
-    fun jouer(jeu: Jeu) {
-        println("\n🎮 Tentative de lancement de : ${jeu.titre} (v${jeu.versionActuelle})")
+    fun jouerAvecRisqueDeCrash(titre: String, plateforme: String) {
+        val url = "jdbc:postgresql://86.252.172.215:5432/polysteam"
+        val user = "polysteam_user"
+        val pass = "PolySteam2026!"
+        val random = Random()
 
-        if (jeu.lancerJeu()) {
-            println("💥 CRASH DÉTECTÉ sur ${jeu.titre} !")
+        try {
+            Class.forName("org.postgresql.Driver")
+            DriverManager.getConnection(url, user, pass).use { conn ->
 
-            // Création du rapport d'incident (Avro) conforme à ton nouveau besoin
-            val rapport = RapportIncidentEvent.newBuilder()
-                .setId(java.util.UUID.randomUUID().toString())
-                .setJeuId(jeu.id)
-                .setJoueurPseudo(joueur.pseudo)
-                .setVersionJeu(jeu.versionActuelle)
-                .setPlateforme(jeu.plateforme)
-                .setDescriptionErreur("Crash critique lors de l'exécution (Simulation probabilité)")
-                .setTimestamp(System.currentTimeMillis())
-                .build()
+                // 1. Vérification possession et récupération ID
+                val checkSql = "SELECT id FROM jeu_catalogue WHERE titre = ? AND UPPER(plateforme) = UPPER(?)"
+                val stmtCheck = conn.prepareStatement(checkSql)
+                stmtCheck.setString(1, titre)
+                stmtCheck.setString(2, plateforme)
+                val rs = stmtCheck.executeQuery()
 
-            // Envoi immédiat à Kafka via le nouveau Producer
-            try {
-                val producer = KafkaClientFactory.createRapportIncidentProducer()
-                producer.send(ProducerRecord("rapports-incidents", jeu.id, rapport))
-                println("📡 Rapport d'incident envoyé au topic 'rapports-incidents'.")
-            } catch (e: Exception) {
-                println("⚠️ Échec de l'envoi Kafka : ${e.message}")
+                if (!rs.next()) return
+                val jeuId = rs.getString("id")
+
+                println("\n🎮 Session lancée : $titre ($plateforme)")
+
+                val producer = KafkaProducer<String, String>(creerConfigurationKafka())
+
+                while (true) {
+                    Thread.sleep(5000)
+
+                    // Simuler une chance de crash (20%)
+                    if (random.nextInt(5) == 0) {
+                        println("\n💥 OH NON ! Le jeu a crashé !")
+
+                        // Préparation du message JSON pour Kafka
+                        val messageCrash = """
+                        {
+                            "joueur": "${joueur.pseudo}",
+                            "jeu_id": "$jeuId",
+                            "titre": "$titre",
+                            "plateforme": "$plateforme",
+                            "type_erreur": "CRITICAL_RUNTIME_ERROR",
+                            "timestamp": "${System.currentTimeMillis()}"
+                        }
+                    """.trimIndent()
+
+                        // Envoi vers le topic "rapports-incidents" (vérifiez le nom avec votre ami)
+                        val record = ProducerRecord<String, String>("rapports-incidents", joueur.pseudo, messageCrash)
+                        producer.send(record)
+
+                        println("📤 Rapport d'incident envoyé à l'éditeur via Kafka.")
+                        producer.close()
+                        break // On sort de la boucle, le jeu est fermé
+                    }
+
+                    // Si pas de crash, on ajoute 1h de jeu
+                    val updateSql = "UPDATE jeu_possede SET temps_jeu_minutes = temps_jeu_minutes + 60 WHERE joueur_pseudo = ? AND jeu_id = ?"
+                    val upStmt = conn.prepareStatement(updateSql)
+                    upStmt.setString(1, joueur.pseudo)
+                    upStmt.setString(2, jeuId)
+                    upStmt.executeUpdate()
+
+                    println("📈 Tout va bien... +1h enregistrée.")
+                }
             }
-        } else {
-            println("✅ Le jeu ${jeu.titre} s'est lancé correctement.")
-            // Ici, tu pourras ajouter l'appel JDBC pour incrémenter le temps de jeu en BD
+        } catch (e: Exception) {
+            println("⚠️ Erreur : ${e.message}")
         }
     }
-
 
     fun inscriptionLocale() {
         println("📝 Préparation de l'inscription pour ${joueur.pseudo} dans la base commune.")
@@ -357,6 +406,64 @@ class Evenement(private val joueur: Joueur) {
             }
         } catch (e: Exception) {
             println("⚠️ Erreur lors de l'affichage de la bibliothèque : ${e.message}")
+        }
+    }
+
+    fun evaluerJeu(titre: String, plateforme: String, note: Int, commentaire: String): Boolean {
+        val url = "jdbc:postgresql://86.252.172.215:5432/polysteam"
+        val user = "polysteam_user"
+        val pass = "PolySteam2026!"
+
+        return try {
+            Class.forName("org.postgresql.Driver")
+            DriverManager.getConnection(url, user, pass).use { conn ->
+
+                // 1. Récupérer l'ID du jeu et vérifier possession + temps de jeu (min 60 min)
+                val checkSql = """
+                SELECT jc.id, jp.temps_jeu_minutes 
+                FROM jeu_catalogue jc
+                JOIN jeu_possede jp ON jc.id = jp.jeu_id
+                WHERE jc.titre = ? AND UPPER(jc.plateforme) = UPPER(?) AND jp.joueur_pseudo = ?
+            """.trimIndent()
+
+                val checkStmt = conn.prepareStatement(checkSql)
+                checkStmt.setString(1, titre)
+                checkStmt.setString(2, plateforme)
+                checkStmt.setString(3, joueur.pseudo)
+                val rs = checkStmt.executeQuery()
+
+                if (!rs.next()) {
+                    println("❌ Erreur : Vous ne possédez pas ce jeu sur cette plateforme.")
+                    return false
+                }
+
+                val jeuId = rs.getString("id")
+                val tempsJeu = rs.getInt("temps_jeu_minutes")
+
+                if (tempsJeu < 60) {
+                    println("❌ Erreur : Vous devez avoir joué au moins 1 heure (actuellement : ${tempsJeu}min).")
+                    return false
+                }
+
+                // 2. Insérer l'évaluation
+                val insertSql = """
+                INSERT INTO evaluation (joueur_pseudo, jeu_id, note, commentaire) 
+                VALUES (?, ?, ?, ?)
+            """.trimIndent()
+
+                val insertStmt = conn.prepareStatement(insertSql)
+                insertStmt.setString(1, joueur.pseudo)
+                insertStmt.setString(2, jeuId)
+                insertStmt.setInt(3, note)
+                insertStmt.setString(4, commentaire)
+
+                insertStmt.executeUpdate()
+                println("⭐ Évaluation publiée avec succès pour '$titre' !")
+                true
+            }
+        } catch (e: Exception) {
+            println("⚠️ Erreur : ${e.message}")
+            false
         }
     }
 }

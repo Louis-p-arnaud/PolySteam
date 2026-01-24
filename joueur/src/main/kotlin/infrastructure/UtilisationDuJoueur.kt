@@ -4,7 +4,7 @@ import model.Jeu
 import model.Joueur
 import service.Evenement
 import java.util.Scanner
-
+/*
 class UtilisationDuJoueur {
     companion object {
 
@@ -103,4 +103,4 @@ class UtilisationDuJoueur {
             run() // Retour à l'accueil
         }
     }
-}
+}*/
