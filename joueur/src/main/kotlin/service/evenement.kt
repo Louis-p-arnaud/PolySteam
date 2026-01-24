@@ -266,4 +266,54 @@ class Evenement(private val joueur: Joueur) {
             println("⚠️ Erreur SQL : ${e.message}")
         }
     }
+
+    fun afficherFicheEditeur(nomEditeur: String) {
+        val url = "jdbc:postgresql://86.252.172.215:5432/polysteam"
+        val user = "polysteam_user"
+        val pass = "PolySteam2026!"
+
+        try {
+            Class.forName("org.postgresql.Driver")
+            DriverManager.getConnection(url, user, pass).use { conn ->
+
+                // Requête pour obtenir les infos de l'éditeur ET la liste de ses jeux
+                val sql = """
+                SELECT e.nom, e.est_independant, e.date_creation, jc.titre, jc.date_publication
+                FROM editeur e
+                LEFT JOIN jeu_catalogue jc ON e.id = jc.editeur_id
+                WHERE UPPER(e.nom) = UPPER(?)
+            """.trimIndent()
+
+                val stmt = conn.prepareStatement(sql)
+                stmt.setString(1, nomEditeur)
+
+                val rs = stmt.executeQuery()
+                var editeurAffiche = false
+
+                while (rs.next()) {
+                    if (!editeurAffiche) {
+                        println("\n--- 🏢 FICHE ÉDITEUR : ${rs.getString("nom")} ---")
+                        println("🛠️ Type : ${if (rs.getBoolean("est_independant")) "Indépendant" else "Studio Majeur"}")
+                        println("📅 Création : ${rs.getTimestamp("date_creation")}")
+                        println("\n📚 Catalogue des jeux proposés :")
+                        editeurAffiche = true
+                    }
+
+                    val titreJeu = rs.getString("titre")
+                    if (titreJeu != null) {
+                        val datePub = rs.getDate("date_publication")
+                        println("  • $titreJeu (Sorti le : $datePub)")
+                    }
+                }
+
+                if (!editeurAffiche) {
+                    println("❌ Aucun éditeur trouvé au nom de '$nomEditeur'.")
+                } else {
+                    println("------------------------------------------")
+                }
+            }
+        } catch (e: Exception) {
+            println("⚠️ Erreur lors de la récupération de l'éditeur : ${e.message}")
+        }
+    }
 }

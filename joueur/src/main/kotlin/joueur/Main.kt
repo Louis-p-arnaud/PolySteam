@@ -7,19 +7,11 @@ fun main() {
     val j = Joueur("jamaljamal", "jamal", "jamal", "1980-05-07")
     val engine = Evenement(j)
 
-    println("--- 🔍 RECHERCHE CATALOGUE ---")
-    print("Entrez le titre du jeu : ")
-    val titre = sc.nextLine()
+    println("--- 🏢 RECHERCHE ÉDITEUR ---")
+    print("Entrez le nom de l'éditeur (ex: Ubisoft, EA, etc.) : ")
+    val nomE = sc.nextLine()
 
-    if (titre.isNotBlank()) {
-        // Affiche toutes les versions (PC, PS5, etc.)
-        engine.afficherFicheJeuParTitre(titre)
-
-        println("\nSouhaitez-vous acheter une de ces versions ? (o/n)")
-        if (sc.nextLine().lowercase() == "o") {
-            print("Précisez le support souhaité : ")
-            val support = sc.nextLine()
-            engine.acheterJeuParTitreEtSupport(titre, support)
-        }
+    if (nomE.isNotBlank()) {
+        engine.afficherFicheEditeur(nomE)
     }
 }
