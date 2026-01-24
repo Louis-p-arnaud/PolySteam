@@ -213,4 +213,57 @@ class Evenement(private val joueur: Joueur) {
             false
         }
     }
+
+    fun afficherFicheJeuParTitre(titreRecherche: String) {
+        val url = "jdbc:postgresql://86.252.172.215:5432/polysteam"
+        val user = "polysteam_user"
+        val pass = "PolySteam2026!"
+
+        try {
+            Class.forName("org.postgresql.Driver")
+            DriverManager.getConnection(url, user, pass).use { conn ->
+
+                // On ajoute une jointure sur jeu_genre pour récupérer l'attribut 'genre'
+                val sql = """
+                SELECT jc.titre, jc.date_publication, e.nom AS nom_editeur, jc.version_actuelle, 
+                       jc.est_version_anticipee, jc.prix_actuel, jg.genre, jc.plateforme
+                FROM jeu_catalogue jc
+                JOIN editeur e ON jc.editeur_id = e.id
+                LEFT JOIN jeu_genre jg ON jc.id = jg.jeu_id
+                WHERE jc.titre = ?
+            """.trimIndent()
+
+                val stmt = conn.prepareStatement(sql)
+                stmt.setString(1, titreRecherche)
+
+                val rs = stmt.executeQuery()
+                var jeuTrouve = false
+
+                while (rs.next()) {
+                    if (!jeuTrouve) {
+                        println("\n--- 📄 FICHE INFORMATION : ${rs.getString("titre")} ---")
+                        println("📅 Date Publication : ${rs.getDate("date_publication")}")
+                        println("🏢 Éditeur          : ${rs.getString("nom_editeur")}")
+                        // On récupère 'genre' depuis la table jeu_genre
+                        println("🏷️ Genre           : ${rs.getString("genre") ?: "Non spécifié"}")
+                        println("\nDisponibilité par plateforme :")
+                        jeuTrouve = true
+                    }
+
+                    val plateforme = rs.getString("plateforme")
+                    val prix = rs.getDouble("prix_actuel")
+                    val version = rs.getString("version_actuelle")
+                    val anticipe = if (rs.getBoolean("est_version_anticipee")) "[ACCÈS ANTICIPÉ]" else ""
+
+                    println("  • [$plateforme] : $prix€ | Version : $version $anticipe")
+                }
+
+                if (!jeuTrouve) {
+                    println("❌ Aucun jeu trouvé pour le titre '$titreRecherche'.")
+                }
+            }
+        } catch (e: Exception) {
+            println("⚠️ Erreur SQL : ${e.message}")
+        }
+    }
 }
