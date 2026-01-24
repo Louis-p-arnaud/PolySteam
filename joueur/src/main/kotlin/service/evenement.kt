@@ -109,7 +109,7 @@ class Evenement(private val joueur: Joueur) {
         }
     }
 
-    fun acheterJeuParTitre(titreJeu: String): Boolean {
+    fun acheterJeuParTitreEtSupport(titreJeu: String, supportSaisi: String): Boolean {
         val url = "jdbc:postgresql://86.252.172.215:5432/polysteam"
         val user = "polysteam_user"
         val pass = "PolySteam2026!"
@@ -118,55 +118,48 @@ class Evenement(private val joueur: Joueur) {
             Class.forName("org.postgresql.Driver")
             DriverManager.getConnection(url, user, pass).use { conn ->
 
-                // 1. Trouver l'ID et la VERSION ACTUELLE à partir du TITRE (Correction 'nom' -> 'titre')
-                val findIdSql = "SELECT id, version_actuelle FROM jeu_catalogue WHERE titre = ?"
+                val findIdSql = "SELECT id, version_actuelle FROM jeu_catalogue WHERE titre = ? AND plateforme = ?"
                 val findIdStmt = conn.prepareStatement(findIdSql)
                 findIdStmt.setString(1, titreJeu)
+                findIdStmt.setString(2, supportSaisi)
+
                 val rsId = findIdStmt.executeQuery()
 
                 if (!rsId.next()) {
-                    println("❌ Le jeu '$titreJeu' n'existe pas dans le catalogue.")
+                    println("❌ Erreur : Le jeu '$titreJeu' n'est pas disponible sur le support '$supportSaisi'.")
                     return false
                 }
 
                 val jeuId = rsId.getString("id")
-                val versionDuCatalogue = rsId.getString("version_actuelle") // On récupère la vraie version
+                val versionCatalogue = rsId.getString("version_actuelle")
 
-                // 2. Vérifier si le joueur possède déjà ce jeu
                 val checkSql = "SELECT COUNT(*) FROM jeu_possede WHERE joueur_pseudo = ? AND jeu_id = ?"
                 val checkStmt = conn.prepareStatement(checkSql)
                 checkStmt.setString(1, joueur.pseudo)
                 checkStmt.setString(2, jeuId)
-                val rsCheck = checkStmt.executeQuery()
 
-                if (rsCheck.next() && rsCheck.getInt(1) > 0) {
-                    println("❌ Vous possédez déjà '$titreJeu' !")
+                if (checkStmt.executeQuery().let { it.next() && it.getInt(1) > 0 }) {
+                    println("❌ Vous possédez déjà '$titreJeu' sur ce support.")
                     return false
                 }
 
-                // 3. Insérer l'achat avec la version récupérée dynamiquement
-                val insertSql = """
-                INSERT INTO jeu_possede (joueur_pseudo, jeu_id, temps_jeu_minutes, version_installee) 
-                VALUES (?, ?, 0, ?)
-            """.trimIndent()
-
+                val insertSql = "INSERT INTO jeu_possede (joueur_pseudo, jeu_id, temps_jeu_minutes, version_installee) VALUES (?, ?, 0, ?)"
                 val insertStmt = conn.prepareStatement(insertSql)
                 insertStmt.setString(1, joueur.pseudo)
                 insertStmt.setString(2, jeuId)
-                insertStmt.setString(3, versionDuCatalogue) // Utilisation de la version du catalogue
+                insertStmt.setString(3, versionCatalogue)
 
                 insertStmt.executeUpdate()
-                println("💰 Achat réussi ! '$titreJeu' (v$versionDuCatalogue) est ajouté à votre bibliothèque.")
+                println("💰 Achat réussi ! '$titreJeu' ajouté sur $supportSaisi.")
                 true
             }
         } catch (e: Exception) {
-            println("⚠️ Erreur lors de l'achat : ${e.message}")
+            println("⚠️ Erreur : ${e.message}")
             false
         }
     }
 
-/*
-    fun acheterJeu(jeuId: String): Boolean {
+    fun mettreAJourJeu(titreJeu: String): Boolean {
         val url = "jdbc:postgresql://86.252.172.215:5432/polysteam"
         val user = "polysteam_user"
         val pass = "PolySteam2026!"
@@ -175,35 +168,49 @@ class Evenement(private val joueur: Joueur) {
             Class.forName("org.postgresql.Driver")
             DriverManager.getConnection(url, user, pass).use { conn ->
 
-                // Vérifier si le joueur possède déjà ce jeu
-                val checkSql = "SELECT COUNT(*) FROM jeu_possede WHERE joueur_pseudo = ? AND jeu_id = ?"
-                val checkStmt = conn.prepareStatement(checkSql)
-                checkStmt.setString(1, joueur.pseudo)
-                checkStmt.setString(2, jeuId)
-                val rs = checkStmt.executeQuery()
-
-                if (rs.next() && rs.getInt(1) > 0) {
-                    println("❌ Vous possédez déjà ce jeu !")
-                    return false
-                }
-
-                // Insérer l'achat dans la table de liaison
-                val insertSql = """
-                INSERT INTO jeu_possede (joueur_pseudo, jeu_id, temps_jeu_minutes, version_installee) 
-                VALUES (?, ?, 0, '1.0.0')
+                // 1. Chercher si une mise à jour est disponible
+                val querySql = """
+                SELECT jp.jeu_id, jc.version_actuelle, jp.version_installee 
+                FROM jeu_possede jp
+                JOIN jeu_catalogue jc ON jp.jeu_id = jc.id
+                WHERE jp.joueur_pseudo = ? AND jc.titre = ?
             """.trimIndent()
 
-                val insertStmt = conn.prepareStatement(insertSql)
-                insertStmt.setString(1, joueur.pseudo)
-                insertStmt.setString(2, jeuId)
+                val stmt = conn.prepareStatement(querySql)
+                stmt.setString(1, joueur.pseudo)
+                stmt.setString(2, titreJeu)
+                val rs = stmt.executeQuery()
 
-                insertStmt.executeUpdate()
-                println("💰 Achat réussi ! Le jeu (ID: $jeuId) est maintenant dans votre bibliothèque.")
-                true
+                if (rs.next()) {
+                    val vCatalogue = rs.getString("version_actuelle")
+                    val vInstallee = rs.getString("version_installee")
+                    val jeuId = rs.getString("jeu_id")
+
+                    if (vCatalogue == vInstallee) {
+                        println("✅ Le jeu '$titreJeu' est déjà à jour (v$vInstallee).")
+                        return false
+                    }
+
+                    // 2. Mettre à jour la version installée
+                    println("📥 Mise à jour trouvée : v$vInstallee -> v$vCatalogue. Téléchargement...")
+
+                    val updateSql = "UPDATE jeu_possede SET version_installee = ? WHERE joueur_pseudo = ? AND jeu_id = ?"
+                    val updateStmt = conn.prepareStatement(updateSql)
+                    updateStmt.setString(1, vCatalogue)
+                    updateStmt.setString(2, joueur.pseudo)
+                    updateStmt.setString(3, jeuId)
+
+                    updateStmt.executeUpdate()
+                    println("✨ Mise à jour terminée ! '$titreJeu' est maintenant en version $vCatalogue.")
+                    true
+                } else {
+                    println("❌ Vous ne possédez pas le jeu '$titreJeu'.")
+                    false
+                }
             }
         } catch (e: Exception) {
-            println("⚠️ Erreur lors de l'achat : ${e.message}")
+            println("⚠️ Erreur lors de la mise à jour : ${e.message}")
             false
         }
-    }*/
+    }
 }
