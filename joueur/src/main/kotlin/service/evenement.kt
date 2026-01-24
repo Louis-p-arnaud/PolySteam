@@ -513,4 +513,87 @@ class Evenement(private val joueur: Joueur) {
             false
         }
     }
+
+
+    fun afficherProfilUtilisateur(pseudoRecherche: String) {
+        val url = "jdbc:postgresql://86.252.172.215:5432/polysteam"
+        val user = "polysteam_user"
+        val pass = "PolySteam2026!"
+
+        try {
+            Class.forName("org.postgresql.Driver")
+            DriverManager.getConnection(url, user, pass).use { conn ->
+
+                // 1. Récupérer les informations personnelles du joueur
+                val sqlJoueur = "SELECT pseudo, nom, prenom, date_naissance FROM joueur WHERE pseudo = ?"
+                val stmtJ = conn.prepareStatement(sqlJoueur)
+                stmtJ.setString(1, pseudoRecherche)
+                val rsJ = stmtJ.executeQuery()
+
+                if (!rsJ.next()) {
+                    println("❌ L'utilisateur '$pseudoRecherche' n'existe pas.")
+                    return
+                }
+
+                println("\n============================================")
+                println("👤 PROFIL DE : ${rsJ.getString("pseudo").uppercase()}")
+                println("============================================")
+                println("Nom         : ${rsJ.getString("nom")}")
+                println("Prénom      : ${rsJ.getString("prenom")}")
+                println("Né(e) le    : ${rsJ.getDate("date_naissance")}")
+                println("--------------------------------------------")
+
+                // 2. Récupérer la bibliothèque et le temps de jeu
+                println("\n🎮 BIBLIOTHÈQUE ET TEMPS DE JEU :")
+                val sqlJeux = """
+                SELECT jc.titre, jc.plateforme, jp.temps_jeu_minutes 
+                FROM jeu_possede jp
+                JOIN jeu_catalogue jc ON jp.jeu_id = jc.id
+                WHERE jp.joueur_pseudo = ?
+                ORDER BY jp.temps_jeu_minutes DESC
+            """.trimIndent()
+
+                val stmtG = conn.prepareStatement(sqlJeux)
+                stmtG.setString(1, pseudoRecherche)
+                val rsG = stmtG.executeQuery()
+
+                var aDesJeux = false
+                while (rsG.next()) {
+                    aDesJeux = true
+                    val t = rsG.getInt("temps_jeu_minutes")
+                    println("• ${rsG.getString("titre")} [${rsG.getString("plateforme")}] : ${t / 60}h ${t % 60}min")
+                }
+                if (!aDesJeux) println("Aucun jeu dans la bibliothèque.")
+
+                // 3. Récupérer les évaluations laissées par le joueur
+                println("\n⭐ ÉVALUATIONS LAISSÉES :")
+                val sqlEval = """
+                SELECT jc.titre, e.note, e.commentaire, e.date_publication
+                FROM evaluation e
+                JOIN jeu_catalogue jc ON e.jeu_id = jc.id
+                WHERE e.joueur_pseudo = ?
+                ORDER BY e.date_publication DESC
+            """.trimIndent()
+
+                val stmtE = conn.prepareStatement(sqlEval)
+                stmtE.setString(1, pseudoRecherche)
+                val rsE = stmtE.executeQuery()
+
+                var aDesEvals = false
+                while (rsE.next()) {
+                    aDesEvals = true
+                    println("--------------------------------------------")
+                    println("Jeu : ${rsE.getString("titre")}")
+                    println("Note : ${rsE.getInt("note")}/10")
+                    println("Commentaire : \"${rsE.getString("commentaire")}\"")
+                    println("Le : ${rsE.getTimestamp("date_publication")}")
+                }
+                if (!aDesEvals) println("Aucune évaluation rédigée.")
+
+                println("============================================\n")
+            }
+        } catch (e: Exception) {
+            println("⚠️ Erreur lors de l'affichage du profil : ${e.message}")
+        }
+    }
 }
