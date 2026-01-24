@@ -1,0 +1,15 @@
+{
+  "type" : "record",
+  "namespace" : "com.polysteam.events",
+  "name" : "PublicationPatchEvent",
+  "fields" : [
+    { "name" : "eventId", "type" : "string" },
+    { "name" : "timestamp", "type" : { "type": "long", "logicalType": "timestamp-millis" } },
+    { "name" : "editeurId", "type" : "string" },
+    { "name" : "jeuNom", "type" : "string" },
+    { "name" : "idPatch", "type" : "int" },
+    { "name" : "commentaireEditeur", "type" : ["null","string"], "default": null },
+    { "name" : "nouvelleVersion", "type" : "string" },
+    { "name" : "modifications", "type" : { "type": "array", "items": "string" } }
+  ]
+}
