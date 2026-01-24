@@ -1,121 +1,113 @@
 package service
 
-import com.projet.joueur.ConsulterProfilEvent
-import com.projet.joueur.EvaluationEvent
-import com.projet.joueur.ReactionEvent
-import model.Jeux
+import model.Jeu
 import model.Joueur
-import com.projet.joueur.TempsJeuEvent
+import com.projet.joueur.RapportIncidentEvent
+import infrastructure.KafkaClientFactory
+import org.apache.kafka.clients.producer.ProducerRecord
+import java.sql.DriverManager
+import java.sql.SQLException
 
 class Evenement(private val joueur: Joueur) {
 
-    fun inscriptionUtilisateurPlateforme() {
-        joueur.estInscrit = true
-        println("${joueur.pseudo} est inscrit.")
-    }
+    /**
+     * Simule le lancement d'un jeu avec une probabilité de crash.
+     * En cas de crash, un rapport est envoyé à Kafka pour les éditeurs.
+     */
+    fun jouer(jeu: Jeu) {
+        println("\n🎮 Tentative de lancement de : ${jeu.titre} (v${jeu.versionActuelle})")
 
-    fun achatJeu(jeu: Jeux, support: String) {
-        joueur.possedeJeux[jeu.nomJeux] = Triple(jeu, support, "1.0")
-        println("Achat de ${jeu.nomJeux} sur $support.")
-    }
+        if (jeu.lancerJeu()) {
+            println("💥 CRASH DÉTECTÉ sur ${jeu.titre} !")
 
-    fun creerCommentaireJeu(jeu: Jeux) {
-        val temps = joueur.mapTempsDeJeux[jeu.nomJeux] ?: 0f
-        // Vérification possession et temps de jeu suffisant [cite: 70]
-        if (joueur.possedeJeux.containsKey(jeu.nomJeux) && temps >= 1.0f) {
-            println("Commentaire autorisé pour ${jeu.nomJeux}.")
+            // 1. Création du rapport d'incident (Avro) conforme à ton nouveau besoin
+            val rapport = RapportIncidentEvent.newBuilder()
+                .setId(java.util.UUID.randomUUID().toString())
+                .setJeuId(jeu.id)
+                .setJoueurPseudo(joueur.pseudo)
+                .setVersionJeu(jeu.versionActuelle)
+                .setPlateforme(jeu.plateforme)
+                .setDescriptionErreur("Crash critique lors de l'exécution (Simulation probabilité)")
+                .setTimestamp(System.currentTimeMillis())
+                .build()
+
+            // 2. Envoi immédiat à Kafka via le nouveau Producer
+            try {
+                val producer = KafkaClientFactory.createRapportIncidentProducer()
+                producer.send(ProducerRecord("rapports-incidents", jeu.id, rapport))
+                println("📡 Rapport d'incident envoyé au topic 'rapports-incidents'.")
+            } catch (e: Exception) {
+                println("⚠️ Échec de l'envoi Kafka : ${e.message}")
+            }
         } else {
-            println("Action refusée : conditions non remplies.")
+            println("✅ Le jeu ${jeu.titre} s'est lancé correctement.")
+            // Ici, tu pourras ajouter l'appel JDBC pour incrémenter le temps de jeu en BD
         }
     }
 
-    fun simulerSessionDeJeu(jeu: Jeux, heures: Float): TempsJeuEvent {
-        // Mise à jour locale du temps de jeu (Logique Métier)
-        val tempsActuel = joueur.mapTempsDeJeux[jeu.nomJeux] ?: 0f
-        joueur.mapTempsDeJeux[jeu.nomJeux] = tempsActuel + heures
 
-        println("🎮 ${joueur.pseudo} a joué à ${jeu.nomJeux} pendant $heures h.")
-        println("⏳ Temps total sur ce jeu : ${joueur.mapTempsDeJeux[jeu.nomJeux]} h.")
+    fun inscriptionLocale() {
+        println("📝 Préparation de l'inscription pour ${joueur.pseudo} dans la base commune.")
+    }
 
-        // Création de l'objet Avro pour informer la plateforme
-        return TempsJeuEvent.newBuilder()
-            .setPseudo(joueur.pseudo)
-            .setNomJeu(jeu.nomJeux)
-            .setHeuresAjoutees(heures)
-            .setTimestamp(System.currentTimeMillis())
-            .build()
+
+    fun achatJeu(jeu: Jeu) {
+        println("💰 Achat de ${jeu.titre} enregistré pour ${joueur.pseudo}.")
     }
 
     /**
-     * Crée une évaluation pour un jeu.
-     * Vérifie la règle métier : temps de jeu > 1h.
+     * Création d'un commentaire : vérification du temps de jeu (minimum 1h / 60 min).
+     * Se base sur les données de l'ERD (temps_jeu_minutes).
      */
-    fun creerEvaluation(nomJeu: String, note: Int, commentaire: String): EvaluationEvent? {
-        val tempsDeJeu = joueur.mapTempsDeJeux[nomJeu] ?: 0f
+    fun creerCommentaire(jeuId: String, tempsJeuMinutes: Long) {
+        if (tempsJeuMinutes >= 60) {
+            println("✍️ Autorisation d'évaluer le jeu $jeuId (Temps: ${tempsJeuMinutes}min).")
+        } else {
+            println("❌ Évaluation refusée : Il faut au moins 60 minutes de jeu.")
+        }
+    }
 
-        if (tempsDeJeu < 1.0f) {
-            println("❌ Action impossible : Vous n'avez que ${tempsDeJeu}h sur $nomJeu (minimum 1h requis).")
-            return null
+    fun inscrireJoueur(pseudo: String, mdp: String, nom: String, prenom: String, dateN: String): Boolean {
+        // 1. Vérification locale du mot de passe
+        if (mdp.length < 8) {
+            println("❌ Erreur : Le mot de passe doit contenir au moins 8 caractères.")
+            return false
         }
 
-        return EvaluationEvent.newBuilder()
-            .setPseudo(joueur.pseudo)
-            .setNomJeu(nomJeu)
-            .setNote(note)
-            .setCommentaire(commentaire)
-            .setTimestamp(System.currentTimeMillis())
-            .build()
-    }
+        val url = "jdbc:postgresql://86.252.172.215:5432/polysteam"
+        val user = "polysteam_user"
+        val password = "PolySteam2026!"
 
-    /**
-     * Crée une réaction (Like/Dislike) sur le commentaire d'un autre joueur.
-     */
-    fun reagirAUnCommentaire(pseudoAuteur: String, utile: Boolean): ReactionEvent {
-        return ReactionEvent.newBuilder()
-            .setPseudoAuteurReaction(joueur.pseudo)
-            .setPseudoCible(pseudoAuteur)
-            .setEstUtile(utile)
-            .setTimestamp(System.currentTimeMillis())
-            .build()
-    }
+        try {
+            DriverManager.getConnection(url, user, password).use { conn ->
+                // 2. Vérification de l'unicité du pseudo (SELECT)
+                val checkSql = "SELECT COUNT(*) FROM joueur WHERE pseudo = ?"
+                val checkStmt = conn.prepareStatement(checkSql)
+                checkStmt.setString(1, pseudo)
+                val rs = checkStmt.executeQuery()
 
-    /**
-     * Enregistre l'intention de consulter le profil d'un autre joueur.
-     */
-    fun consulterProfil(pseudoCible: String): ConsulterProfilEvent {
-        return ConsulterProfilEvent.newBuilder()
-            .setPseudoVisiteur(joueur.pseudo)
-            .setPseudoConsulte(pseudoCible)
-            .setTimestamp(System.currentTimeMillis())
-            .build()
-    }
+                if (rs.next() && rs.getInt(1) > 0) {
+                    println("❌ Erreur : Le pseudo '$pseudo' est déjà utilisé.")
+                    return false
+                }
 
+                // 3. Insertion du nouveau compte (INSERT)
+                // Note : L'ERD contient pseudo, nom, prenom, date_naissance
+                // ✅ LA BONNE SYNTAXE :
+                val insertSql = "INSERT INTO joueur (pseudo, nom, prenom, date_naissance) VALUES (?, ?, ?, ?::date)"
+                val insertStmt = conn.prepareStatement(insertSql)
+                insertStmt.setString(1, pseudo)
+                insertStmt.setString(2, nom)
+                insertStmt.setString(3, prenom)
+                insertStmt.setString(4, dateN)
 
-
-
-
-
-    fun affichageFluxInformation() {
-        println("📡 Affichage du flux d'actualités pour ${joueur.pseudo}...")
-    }
-
-    fun LikerCommentaireJeu() {
-        println("👍 Vous avez aimé un commentaire.")
-    }
-
-    fun DislikerCommentaireJeu() {
-        println("👎 Vous avez disliké un commentaire.")
-    }
-
-    fun consulterJoueur(autreJoueur: Joueur) {
-        println("👤 Consultation du profil de ${autreJoueur.pseudo} par ${joueur.pseudo}.")
-    }
-
-    fun consulterPageJeux() {
-        println("📖 Consultation de la boutique/catalogue des jeux.")
-    }
-
-    fun consulterFluxInformation() {
-        println("🔍 Consultation détaillée du flux d'information.")
+                insertStmt.executeUpdate()
+                println("✅ Compte créé avec succès pour $pseudo !")
+                return true
+            }
+        } catch (e: SQLException) {
+            println("⚠️ Erreur base de données : ${e.message}")
+            return false
+        }
     }
 }

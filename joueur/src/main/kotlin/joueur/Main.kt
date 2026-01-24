@@ -1,98 +1,44 @@
-import model.Jeux
 import model.Joueur
 import service.Evenement
-import java.time.LocalDate
-import com.projet.joueur.AchatJeuEvent
-import infrastructure.KafkaClientFactory
-import org.apache.kafka.clients.producer.ProducerRecord
-import java.time.Duration
+import java.util.Scanner
 import infrastructure.UtilisationDuJoueur
-import java.util.*
-
 
 fun main() {
-    val j = Joueur("Sniper99", "Dupont", "Jean", LocalDate.of(2000, 5, 15))
-    val engine = Evenement(j)
-    val elden = Jeux("Elden Ring", 60, listOf("RPG"))
+    val sc = Scanner(System.`in`)
 
-    engine.inscriptionUtilisateurPlateforme()
-    engine.achatJeu(elden, "PS5")
+    println("--- 🧪 TEST DU SYSTÈME D'INSCRIPTION ---")
 
-    j.mapTempsDeJeux[elden.nomJeux] = 2.5f // Simule le temps passé [cite: 50]
-    engine.creerCommentaireJeu(elden)
+    // On crée un joueur "vide" ou temporaire pour accéder aux fonctions de l'engine
+    val joueurTemp = Joueur("Invite", "", "", "2000-01-01")
+    val engine = Evenement(joueurTemp)
 
-    try {
-        val event = AchatJeuEvent.newBuilder()
-            .setPseudo("German")           // Pos 0
-            .setNomJeu("Elden Ring")       // Pos 1
-            .setSupport("PS5")          // Pos 2 (C'est probablement celui-ci qui manque !)
-            .setPrixPaye(50)
-            .setTimestamp(System.currentTimeMillis())
-            .build()
+    // 1. TEST DE L'INSCRIPTION
+    println("\n📝 Création d'un nouveau compte :")
+    print("Pseudo souhaité : ")
+    val pseudo = sc.nextLine()
+    print("Mot de passe (min 8 caractères) : ")
+    val mdp = sc.nextLine()
+    print("Nom : ")
+    val nom = sc.nextLine()
+    print("Prénom : ")
+    val prenom = sc.nextLine()
+    print("Date de naissance (AAAA-MM-JJ) : ")
+    val dateN = sc.nextLine()
 
-        println("✅ Succès Avro : Objet créé pour le joueur ${event.getPseudo()}")
+    // Appel de la fonction avec la logique JDBC (Unicité + Longueur MDP)
+    val succes = engine.inscrireJoueur(pseudo, mdp, nom, prenom, dateN)
 
-        // Dans ton bloc try, après la création de l'event :
-        val producer = KafkaClientFactory.createAchatJeuProducer()
-        val record = ProducerRecord<String, AchatJeuEvent>("achats-jeux", event.getPseudo().toString(), event)
+    if (succes) {
+        println("\n✅ Test réussi : Le compte a été validé et inséré en base.")
+        println("Vous pouvez maintenant lancer l'application complète.")
 
-        producer.send(record) { metadata, exception ->
-            if (exception == null) {
-                println("🚀 Kafka : Message envoyé dans le topic ${metadata.topic()} (offset: ${metadata.offset()})")
-            } else {
-                println("❌ Erreur d'envoi Kafka : ${exception.message}")
-            }
-        }
-        producer.flush() // Force l'envoi
-        producer.close() // Ferme proprement
-    } catch (e: Exception) {
-        println("❌ Erreur Avro : ${e.message}")
-    }
-
-    // --- PARTIE 1 : ENVOI (PRODUCER) ---
-    val event = AchatJeuEvent.newBuilder()
-        .setPseudo("GermainTest")
-        .setNomJeu("Cyberpunk 2077")
-        .setSupport("PC")
-        .setPrixPaye(30)
-        .setTimestamp(System.currentTimeMillis())
-        .build()
-
-    val producer = KafkaClientFactory.createAchatJeuProducer()
-    val record = ProducerRecord("achats-jeux", event.getPseudo().toString(), event)
-
-    producer.send(record) { metadata, ex ->
-        if (ex == null) {
-            println("🚀 Envoyé ! Topic: ${metadata.topic()} | Offset: ${metadata.offset()}")
-        }
-    }
-    producer.flush()
-
-    // --- PARTIE 2 : LECTURE (CONSUMER) ---
-    println("\n🔍 Tentative de lecture du message...")
-
-    // On crée le consumer avec un Group ID unique pour ce test
-    val consumer = KafkaClientFactory.createAchatJeuConsumer("test-group-${UUID.randomUUID()}")
-
-    // On s'abonne au topic
-    consumer.subscribe(listOf("achats-jeux"))
-
-    // On fait une petite boucle pour essayer de lire le message
-    val records = consumer.poll(Duration.ofSeconds(10)) // On attend max 10s
-
-    if (records.isEmpty) {
-        println("⚠️ Aucun message trouvé. Kafka est peut-être encore en train de traiter.")
+     /*   // Optionnel : Lancer l'interface utilisateur réelle
+        println("\nSouhaitez-vous lancer l'interface PolySteam ? (o/n)")
+        if (sc.nextLine().lowercase() == "o") {
+            UtilisationDuJoueur.run()
+        }*/
     } else {
-        for (rec in records) {
-            val recu = rec.value()
-            println("✅ Message reçu de Kafka !")
-            println("Joueur : ${recu.getPseudo()} | Jeu : ${recu.getNomJeu()} | Prix : ${recu.getPrixPaye()}€")
-        }
+        println("\n❌ Test échoué : Les conditions n'ont pas été remplies ou erreur SQL.")
+        println("Vérifiez la console pour le détail de l'erreur.")
     }
-
-    consumer.close()
-    producer.close()
-
-    UtilisationDuJoueur.run()
-
 }

@@ -22,6 +22,7 @@ dependencies {
     implementation("io.confluent:kafka-avro-serializer:7.5.0")
 
     implementation("org.slf4j:slf4j-simple:2.0.9")
+    implementation("org.postgresql:postgresql:42.7.1")
 }
 
 // Configuration simplifiée pour Avro

@@ -1,0 +1,14 @@
+{
+        "type": "record",
+        "name": "RapportIncidentEvent",
+        "namespace": "com.projet.joueur",
+        "fields": [
+        {"name": "id", "type": "string"},
+        {"name": "jeuId", "type": "string"},
+        {"name": "joueurPseudo", "type": "string"},
+        {"name": "versionJeu", "type": "string"},
+        {"name": "plateforme", "type": "string"},
+        {"name": "descriptionErreur", "type": "string"},
+        {"name": "timestamp", "type": "long"}
+        ]
+        }

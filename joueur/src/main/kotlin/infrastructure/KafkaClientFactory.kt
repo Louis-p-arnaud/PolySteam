@@ -66,4 +66,9 @@ object KafkaClientFactory {
     fun createReactionProducer() = KafkaProducer<String, ReactionEvent>(getCommonProps())
     @JvmStatic
     fun createConsultationProducer() = KafkaProducer<String, ConsulterProfilEvent>(getCommonProps())
+
+    @JvmStatic
+    fun createRapportIncidentProducer(): KafkaProducer<String, RapportIncidentEvent> {
+        return KafkaProducer<String, RapportIncidentEvent>(getCommonProps())
+    }
 }

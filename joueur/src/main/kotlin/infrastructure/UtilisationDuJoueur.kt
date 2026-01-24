@@ -1,17 +1,12 @@
 package infrastructure
 
-import model.Jeux
+import model.Jeu
 import model.Joueur
 import service.Evenement
-import java.time.LocalDate
 import java.util.Scanner
-import com.projet.joueur.InscriptionEvent
-import org.apache.kafka.clients.producer.ProducerRecord
 
 class UtilisationDuJoueur {
     companion object {
-        // Simulation d'une base de données : Pseudo -> Paire(MotDePasse, Objet Joueur)
-        private val baseDeDonneesUtilisateurs = mutableMapOf<String, Pair<String, Joueur>>()
 
         @JvmStatic
         fun run() {
@@ -20,7 +15,7 @@ class UtilisationDuJoueur {
 
             println("\n--- 🎮 Bienvenue sur PolySteam ---")
 
-            // ÉTAPE 1 : AUTHENTIFICATION
+            // ÉTAPE 1 : AUTHENTIFICATION (Via Base de Données)
             while (utilisateurConnecte == null) {
                 println("\n1. S'inscrire")
                 println("2. Se connecter")
@@ -29,112 +24,83 @@ class UtilisationDuJoueur {
 
                 when (sc.nextLine()) {
                     "1" -> {
-                        println("--- Inscription ---")
+                        println("--- Inscription (BD Commune) ---")
                         print("Pseudo : "); val pseudo = sc.nextLine()
-                        print("Mot de passe : "); val mdp = sc.nextLine()
+                        print("Mot de passe (8 car. min) : "); val mdp = sc.nextLine()
                         print("Nom : "); val nom = sc.nextLine()
                         print("Prénom : "); val prenom = sc.nextLine()
                         print("Date de naissance (AAAA-MM-JJ) : "); val dateN = sc.nextLine()
 
-                        val event = InscriptionEvent.newBuilder()
-                            .setPseudo(pseudo)
-                            .setPassword(mdp)
-                            .setNom(nom)
-                            .setPrenom(prenom)
-                            .setDateNaissance(dateN)
-                            .setTypeAction("INSCRIPTION")
-                            .build()
+                        // On utilise un moteur temporaire pour l'inscription
+                        val engine = Evenement(Joueur(pseudo, nom, prenom, dateN))
+                        val succes = engine.inscrireJoueur(pseudo, mdp, nom, prenom, dateN)
 
-                        // Envoi vers un topic "demandes-inscription"
-                        val producer = KafkaClientFactory.createInscriptionProducer()
-                        producer.send(ProducerRecord("demandes-inscription", pseudo, event))
-                        println("⏳ Demande envoyée à la plateforme...")
+                        if (succes) {
+                            println("✅ Inscription réussie. Veuillez vous connecter.")
+                        }
                     }
                     "2" -> {
                         println("--- Connexion ---")
                         print("Pseudo : "); val pseudo = sc.nextLine()
                         print("Mot de passe : "); val mdp = sc.nextLine()
 
-                        // On réutilise le schéma InscriptionEvent en changeant le typeAction
-                        val event = InscriptionEvent.newBuilder()
-                            .setPseudo(pseudo)
-                            .setPassword(mdp)
-                            .setNom("") // On peut mettre vide car inutile pour la connexion
-                            .setPrenom("")
-                            .setDateNaissance("")
-                            .setTypeAction("CONNEXION") // <-- C'est ce champ qui guide la Plateforme
-                            .build()
-
-                        val producer = KafkaClientFactory.createInscriptionProducer()
-                        producer.send(ProducerRecord("demandes-inscription", pseudo, event))
-
-                        println("⏳ Vérification de vos identifiants auprès de la plateforme...")
-                        // Ici, il faudra ajouter le code pour attendre la réponse (Consumer)
+                        // Simulation de connexion via BD
+                        // Idéalement : vérifier le pseudo et mdp avec un SELECT en BD
+                        println("🔍 Vérification en base de données...")
+                        utilisateurConnecte = Joueur(pseudo, "Nom", "Prenom", "2000-01-01")
+                        println("✅ Connecté en tant que $pseudo")
                     }
                     "3" -> return
                 }
             }
 
-            // ÉTAPE 2 : MENU PRINCIPAL (Une fois connecté)
-            menuPrincipal(utilisateurConnecte, sc)
+            // ÉTAPE 2 : MENU PRINCIPAL
+            menuPrincipal(utilisateurConnecte!!, sc)
         }
 
-        //TODO: Compléter les options du menu principal en ajoutant notemment l'ajout de commentaire, la consultation de profil, l'evaluation de jeu etc.
         private fun menuPrincipal(joueur: Joueur, sc: Scanner) {
             val engine = Evenement(joueur)
             var continuer = true
 
             while (continuer) {
                 println("\n--- MENU PRINCIPAL [${joueur.pseudo}] ---")
-                println("1. Acquérir un jeu")
-                println("2. Consulter les pages / Catalogue")
-                println("3. Afficher mon flux d'informations")
-                println("4. Évaluer/Commenter un jeu")
-                println("5. Liker/Disliker un commentaire")
-                println("6. Jouer à un jeu (Simuler du temps)")
-                println("7. Se déconnecter")
+                println("1. Acquérir un jeu (BD)")
+                println("2. Jouer à un jeu (Test Probabilité Crash / Kafka)")
+                println("3. Évaluer un jeu (Condition 60 min)")
+                println("4. Se déconnecter")
                 print("> ")
 
                 when (sc.nextLine()) {
                     "1" -> {
-                        print("Nom du jeu : ")
+                        print("Nom du jeu à acheter : ")
                         val nom = sc.nextLine()
-                        print("Support (PC, PS5, etc.) : ")
-                        val support = sc.nextLine()
-                        engine.achatJeu(Jeux(nom, 60, listOf("Action")), support) //
+                        // Simulation d'un objet Jeu issu du catalogue
+                        val jeuAchete = Jeu(java.util.UUID.randomUUID().toString(), nom, "EditeurID", "PC", "1.0")
+                        engine.achatJeu(jeuAchete)
                     }
-                    "2" -> engine.consulterPageJeux() //
-                    "3" -> engine.affichageFluxInformation() //
+                    "2" -> {
+                        print("Quel jeu voulez-vous lancer ? ")
+                        val nom = sc.nextLine()
+                        // Simulation d'un jeu possédé avec 10% de chance de crash
+                        val jeu = Jeu("uuid-123", nom, "Editeur-X", "PC", "1.2", 0.10)
+
+                        // Cette fonction déclenchera un message Kafka uniquement en cas de crash
+                        engine.jouer(jeu)
+                    }
+                    "3" -> {
+                        print("ID du jeu à évaluer : ")
+                        val id = sc.nextLine()
+                        // On simule une récupération du temps de jeu depuis la table 'jeu_possede'
+                        val tempsMinutes: Long = 75 // Exemple : le joueur a 75 min
+                        engine.creerCommentaire(id, tempsMinutes)
+                    }
                     "4" -> {
-                        print("Nom du jeu à évaluer : ")
-                        val nomJeu = sc.nextLine()
-                        engine.creerCommentaireJeu(Jeux(nomJeu, 0, emptyList())) //
+                        continuer = false
+                        println("👋 Déconnexion...")
                     }
-                    "5" -> {
-                        println("1. Liker | 2. Disliker")
-                        if(sc.nextLine() == "1") engine.LikerCommentaireJeu() else engine.DislikerCommentaireJeu() //
-                    }
-                    "6" -> {
-                        print("À quel jeu jouez-vous ? ")
-                        val nomJeu = sc.nextLine()
-                        print("Combien d'heures ? ")
-                        val h = sc.nextLine().toFloatOrNull() ?: 0f
-
-                        val jeu = Jeux(nomJeu, 0, emptyList())
-                        val event = engine.simulerSessionDeJeu(jeu, h)
-
-                        // Envoi via Kafka (le Producer)
-                        try {
-                            val producer = KafkaClientFactory.createTempsJeuProducer()
-                            producer.send(ProducerRecord("flux-temps-jeu", joueur.pseudo, event))
-                        } catch (e: Exception) {
-                            println("⚠️ Kafka non disponible, temps mis à jour uniquement en local.")
-                        }
-                    }
-                    "7" -> continuer = false
                 }
             }
-            run() // Retour à l'écran de connexion
+            run() // Retour à l'accueil
         }
     }
 }
