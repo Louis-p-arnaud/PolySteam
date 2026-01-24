@@ -1,0 +1,13 @@
+{
+        "type": "record",
+        "name": "RapportIncident",
+        "namespace": "com.polysteam.avro",
+        "fields": [
+        {"name": "joueur_pseudo", "type": "string"},
+        {"name": "jeu_id", "type": "string"},
+        {"name": "titre", "type": "string"},
+        {"name": "plateforme", "type": "string"},
+        {"name": "type_erreur", "type": "string"},
+        {"name": "timestamp", "type": "long"}
+        ]
+        }

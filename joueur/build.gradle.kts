@@ -17,9 +17,9 @@ dependencies {
     implementation(kotlin("stdlib"))
 
     // Dépendances Kafka et Avro
-    implementation("org.apache.kafka:kafka-clients:3.6.0")
     implementation("org.apache.avro:avro:1.11.3")
     implementation("io.confluent:kafka-avro-serializer:7.5.0")
+    implementation("org.apache.kafka:kafka-clients:3.6.1")
 
     implementation("org.slf4j:slf4j-simple:2.0.9")
     implementation("org.postgresql:postgresql:42.7.1")

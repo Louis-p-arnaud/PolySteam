@@ -10,88 +10,135 @@ import java.sql.SQLException
 import org.apache.kafka.clients.producer.KafkaProducer
 import java.util.Properties
 import java.util.Random
+import io.confluent.kafka.serializers.KafkaAvroSerializer
+import org.apache.avro.Schema
+import org.apache.avro.generic.GenericData
+import org.apache.avro.generic.GenericRecord
+
+
 
 class Evenement(private val joueur: Joueur) {
 
-
-
-    // Ajoutez cette fonction utilitaire dans votre classe Evenement
-    private fun creerConfigurationKafka(): Properties {
+    private fun creerConfigurationKafkaAvro(): Properties {
         val props = Properties()
         props["bootstrap.servers"] = "86.252.172.215:9092"
+
+        // URL du Schema Registry de ton ami (port par défaut 8081)
+        props["schema.registry.url"] = "http://86.252.172.215:8081"
+
         props["key.serializer"] = "org.apache.kafka.common.serialization.StringSerializer"
-        props["value.serializer"] = "org.apache.kafka.common.serialization.StringSerializer"
+        // On utilise le sérialiseur Avro pour la valeur
+        props["value.serializer"] = KafkaAvroSerializer::class.java.name
+
         return props
     }
+
 
     /**
      * Simule le lancement d'un jeu avec une probabilité de crash.
      * En cas de crash, un rapport est envoyé à Kafka pour les éditeurs.
      */
-    fun jouerAvecRisqueDeCrash(titre: String, plateforme: String) {
+    fun jouerAvecCrashAvro(titre: String, plateforme: String) {
         val url = "jdbc:postgresql://86.252.172.215:5432/polysteam"
         val user = "polysteam_user"
         val pass = "PolySteam2026!"
         val random = Random()
 
+        // 1. Définition du Schéma Avro
+        val schemaString = """
+    {
+      "type": "record",
+      "name": "RapportIncident",
+      "namespace": "com.polysteam.avro",
+      "fields": [
+        {"name": "joueur_pseudo", "type": "string"},
+        {"name": "jeu_id", "type": "string"},
+        {"name": "titre", "type": "string"},
+        {"name": "plateforme", "type": "string"},
+        {"name": "type_erreur", "type": "string"},
+        {"name": "timestamp", "type": "long"}
+      ]
+    }
+    """.trimIndent()
+        val schema = Schema.Parser().parse(schemaString)
+
+        // 2. Configuration Kafka avec Avro et Schema Registry
+        val props = Properties()
+        props["bootstrap.servers"] = "86.252.172.215:9092"
+        props["schema.registry.url"] = "http://86.252.172.215:8081"
+        props["key.serializer"] = "org.apache.kafka.common.serialization.StringSerializer"
+        props["value.serializer"] = KafkaAvroSerializer::class.java.name
+
+        val producer = KafkaProducer<String, GenericRecord>(props)
+
         try {
             Class.forName("org.postgresql.Driver")
             DriverManager.getConnection(url, user, pass).use { conn ->
 
-                // 1. Vérification possession et récupération ID
-                val checkSql = "SELECT id FROM jeu_catalogue WHERE titre = ? AND UPPER(plateforme) = UPPER(?)"
+                // 3. Vérification de la possession du jeu
+                val checkSql = """
+                SELECT jc.id FROM jeu_catalogue jc
+                JOIN jeu_possede jp ON jc.id = jp.jeu_id
+                WHERE jc.titre = ? AND UPPER(jc.plateforme) = UPPER(?) AND jp.joueur_pseudo = ?
+            """.trimIndent()
+
                 val stmtCheck = conn.prepareStatement(checkSql)
                 stmtCheck.setString(1, titre)
                 stmtCheck.setString(2, plateforme)
+                stmtCheck.setString(3, joueur.pseudo)
                 val rs = stmtCheck.executeQuery()
 
-                if (!rs.next()) return
+                if (!rs.next()) {
+                    println("❌ Erreur : Vous ne possédez pas ce jeu.")
+                    return
+                }
                 val jeuId = rs.getString("id")
 
                 println("\n🎮 Session lancée : $titre ($plateforme)")
-
-                val producer = KafkaProducer<String, String>(creerConfigurationKafka())
+                println("⏳ Simulation : 1h ajoutée toutes les 5s. Risque de crash Avro activé.")
 
                 while (true) {
                     Thread.sleep(5000)
 
-                    // Simuler une chance de crash (20%)
+                    // 4. Simulation du crash (20% de chance)
                     if (random.nextInt(5) == 0) {
-                        println("\n💥 OH NON ! Le jeu a crashé !")
+                        println("\n💥 CRASH DÉTECTÉ !")
 
-                        // Préparation du message JSON pour Kafka
-                        val messageCrash = """
-                        {
-                            "joueur": "${joueur.pseudo}",
-                            "jeu_id": "$jeuId",
-                            "titre": "$titre",
-                            "plateforme": "$plateforme",
-                            "type_erreur": "CRITICAL_RUNTIME_ERROR",
-                            "timestamp": "${System.currentTimeMillis()}"
+                        // Création de l'objet Avro
+                        val avroRecord = GenericData.Record(schema).apply {
+                            put("joueur_pseudo", joueur.pseudo)
+                            put("jeu_id", jeuId)
+                            put("titre", titre)
+                            put("plateforme", plateforme)
+                            put("type_erreur", "AVRO_SERIALIZED_CRASH")
+                            put("timestamp", System.currentTimeMillis())
                         }
-                    """.trimIndent()
 
-                        // Envoi vers le topic "rapports-incidents" (vérifiez le nom avec votre ami)
-                        val record = ProducerRecord<String, String>("rapports-incidents", joueur.pseudo, messageCrash)
-                        producer.send(record)
-
-                        println("📤 Rapport d'incident envoyé à l'éditeur via Kafka.")
-                        producer.close()
-                        break // On sort de la boucle, le jeu est fermé
+                        // Envoi vers Kafka
+                        val kafkaRecord = ProducerRecord<String, GenericRecord>("rapports-incidents", joueur.pseudo, avroRecord)
+                        producer.send(kafkaRecord) { meta, ex ->
+                            if (ex == null) {
+                                println("📤 Rapport Avro envoyé avec succès (Offset: ${meta.offset()})")
+                            } else {
+                                println("❌ Échec Kafka/Avro : ${ex.message}")
+                            }
+                        }
+                        break
                     }
 
-                    // Si pas de crash, on ajoute 1h de jeu
+                    // 5. Si pas de crash, mise à jour du temps en base
                     val updateSql = "UPDATE jeu_possede SET temps_jeu_minutes = temps_jeu_minutes + 60 WHERE joueur_pseudo = ? AND jeu_id = ?"
                     val upStmt = conn.prepareStatement(updateSql)
                     upStmt.setString(1, joueur.pseudo)
                     upStmt.setString(2, jeuId)
                     upStmt.executeUpdate()
-
-                    println("📈 Tout va bien... +1h enregistrée.")
+                    println("📈 +1h de jeu enregistrée...")
                 }
             }
         } catch (e: Exception) {
-            println("⚠️ Erreur : ${e.message}")
+            println("⚠️ Interruption : ${e.message}")
+        } finally {
+            producer.close()
         }
     }
 

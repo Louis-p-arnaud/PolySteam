@@ -5,32 +5,33 @@ import java.util.Scanner
 fun main() {
     val sc = Scanner(System.`in`)
 
-    // 1. Initialisation avec ton joueur de test
+    // 1. Initialisation avec votre compte de test
+    // (Assurez-vous que ce joueur existe dans la table 'joueur')
     val joueurTest = Joueur("jamaljamal", "jamal", "jamal", "1980-05-07")
     val engine = Evenement(joueurTest)
 
-    println("--- 🚀 TEST DU MODULE DE JEU ET CRASH KAFKA ---")
-    println("Utilisateur : ${joueurTest.pseudo}")
+    println("--- 🛡️ TEST KAFKA AVRO & SCHEMA REGISTRY ---")
+    println("Joueur connecté : ${joueurTest.pseudo}")
 
-    // 2. Choix du jeu à lancer
-    // Note : Assure-toi d'avoir déjà acheté ce jeu avec la fonction précédente
-    print("\nEntrez le titre du jeu à lancer : ")
+    // 2. Sélection du jeu
+    // Note : Le joueur doit POSSÉDER ce jeu dans 'jeu_possede'
+    print("\nEntrez le titre du jeu (ex: FIFA 24) : ")
     val titre = sc.nextLine()
 
     print("Entrez la plateforme (ex: PC, PS5) : ")
     val plateforme = sc.nextLine()
 
     if (titre.isNotBlank() && plateforme.isNotBlank()) {
-        println("\n--- DÉMARRAGE DE LA SIMULATION ---")
-        println("Le programme va ajouter 1h de jeu toutes les 5 secondes.")
-        println("Il y a 20% de chance qu'un crash survienne à chaque cycle.")
-        println("----------------------------------------------------------")
+        println("\n🚀 Démarrage de la simulation...")
+        println("📍 Serveur Kafka : 86.252.172.215:9092")
+        println("📍 Schema Registry : 86.252.172.215:8081")
+        println("--------------------------------------------------")
 
-        // 3. Appel de la fonction avec Kafka
-        engine.jouerAvecRisqueDeCrash(titre, plateforme)
+        // 3. Lancement de la boucle de jeu avec crash Avro
+        engine.jouerAvecCrashAvro(titre, plateforme)
 
-        println("\n--- FIN DE LA SIMULATION ---")
+        println("\n--- FIN DU TEST ---")
     } else {
-        println("Saisie invalide.")
+        println("❌ Erreur : Saisie incomplète.")
     }
 }
