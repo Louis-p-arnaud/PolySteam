@@ -4,14 +4,9 @@ import java.util.Scanner
 
 fun main() {
     val sc = Scanner(System.`in`)
-    val j = Joueur("jamaljamal", "jamal", "jamal", "1980-05-07")
-    val engine = Evenement(j)
 
-    println("--- 🏢 RECHERCHE ÉDITEUR ---")
-    print("Entrez le nom de l'éditeur (ex: Ubisoft, EA, etc.) : ")
-    val nomE = sc.nextLine()
+    val engine = Evenement(Joueur("jamaljamal", "jamal", "jamal", "1980-05-07"))
 
-    if (nomE.isNotBlank()) {
-        engine.afficherFicheEditeur(nomE)
-    }
+    // Affiche la liste des jeux possédés par jamaljamal
+    engine.afficherJeuxPossedes()
 }

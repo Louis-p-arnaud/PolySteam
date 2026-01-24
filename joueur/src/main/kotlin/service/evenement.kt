@@ -20,7 +20,7 @@ class Evenement(private val joueur: Joueur) {
         if (jeu.lancerJeu()) {
             println("💥 CRASH DÉTECTÉ sur ${jeu.titre} !")
 
-            // 1. Création du rapport d'incident (Avro) conforme à ton nouveau besoin
+            // Création du rapport d'incident (Avro) conforme à ton nouveau besoin
             val rapport = RapportIncidentEvent.newBuilder()
                 .setId(java.util.UUID.randomUUID().toString())
                 .setJeuId(jeu.id)
@@ -31,7 +31,7 @@ class Evenement(private val joueur: Joueur) {
                 .setTimestamp(System.currentTimeMillis())
                 .build()
 
-            // 2. Envoi immédiat à Kafka via le nouveau Producer
+            // Envoi immédiat à Kafka via le nouveau Producer
             try {
                 val producer = KafkaClientFactory.createRapportIncidentProducer()
                 producer.send(ProducerRecord("rapports-incidents", jeu.id, rapport))
@@ -51,9 +51,6 @@ class Evenement(private val joueur: Joueur) {
     }
 
 
-    fun achatJeu(jeu: Jeu) {
-        println("💰 Achat de ${jeu.titre} enregistré pour ${joueur.pseudo}.")
-    }
 
     /**
      * Création d'un commentaire : vérification du temps de jeu (minimum 1h / 60 min).
@@ -314,6 +311,52 @@ class Evenement(private val joueur: Joueur) {
             }
         } catch (e: Exception) {
             println("⚠️ Erreur lors de la récupération de l'éditeur : ${e.message}")
+        }
+    }
+
+    fun afficherJeuxPossedes() {
+        val url = "jdbc:postgresql://86.252.172.215:5432/polysteam"
+        val user = "polysteam_user"
+        val pass = "PolySteam2026!"
+
+        try {
+            Class.forName("org.postgresql.Driver")
+            DriverManager.getConnection(url, user, pass).use { conn ->
+
+                val sql = """
+                SELECT jc.titre, jc.plateforme, jp.temps_jeu_minutes, jp.version_installee 
+                FROM jeu_possede jp
+                JOIN jeu_catalogue jc ON jp.jeu_id = jc.id
+                WHERE jp.joueur_pseudo = ?
+            """.trimIndent()
+
+                val stmt = conn.prepareStatement(sql)
+                stmt.setString(1, joueur.pseudo)
+
+                val rs = stmt.executeQuery()
+                var aDesJeux = false
+
+                println("\n--- 📚 BIBLIOTHÈQUE DE ${joueur.pseudo} ---")
+
+                while (rs.next()) {
+                    aDesJeux = true
+                    val titre = rs.getString("titre")
+                    val plateforme = rs.getString("plateforme")
+                    val temps = rs.getInt("temps_jeu_minutes")
+                    val version = rs.getString("version_installee")
+
+                    println("🎮 $titre [$plateforme]")
+                    println("   • Temps de jeu : ${temps / 60}h ${temps % 60}min")
+                    println("   • Version installée : $version")
+                    println("   -----------------------")
+                }
+
+                if (!aDesJeux) {
+                    println("Votre bibliothèque est vide. Visitez la boutique pour acquérir des jeux !")
+                }
+            }
+        } catch (e: Exception) {
+            println("⚠️ Erreur lors de l'affichage de la bibliothèque : ${e.message}")
         }
     }
 }

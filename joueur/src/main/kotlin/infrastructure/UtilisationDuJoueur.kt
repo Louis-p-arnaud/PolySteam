@@ -76,7 +76,7 @@ class UtilisationDuJoueur {
                         val nom = sc.nextLine()
                         // Simulation d'un objet Jeu issu du catalogue
                         val jeuAchete = Jeu(java.util.UUID.randomUUID().toString(), nom, "EditeurID", "PC", "1.0")
-                        engine.achatJeu(jeuAchete)
+                        engine.acheterJeuParTitreEtSupport(jeuAchete.titre,"PC")
                     }
                     "2" -> {
                         print("Quel jeu voulez-vous lancer ? ")
