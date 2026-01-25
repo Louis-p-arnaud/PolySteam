@@ -1,3 +1,5 @@
+package model;
+
 import java.util.List;
 
 public class Patch {
@@ -18,7 +20,7 @@ public class Patch {
 
     @Override
     public String toString() {
-        return "Patch{" +
+        return "model.Patch{" +
                 "jeu=" + jeu +
                 ", idPatch=" + idPatch +
                 ", commentaireEditeur='" + commentaireEditeur + '\'' +

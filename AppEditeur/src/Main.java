@@ -1,3 +1,8 @@
+import model.Editeur;
+import model.Enums;
+import model.Jeu;
+import model.Patch;
+
 import java.util.*;
 
 public class Main {

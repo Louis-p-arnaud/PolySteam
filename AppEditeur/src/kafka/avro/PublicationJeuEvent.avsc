@@ -1,0 +1,15 @@
+{
+  "type" : "record",
+  "namespace" : "com.polysteam.events",
+  "name" : "PublicationJeuEvent",
+  "fields" : [
+    { "name" : "eventId", "type" : "string" },
+    { "name" : "timestamp", "type" : { "type": "long", "logicalType": "timestamp-millis" } },
+    { "name" : "editeurId", "type" : "string" },
+    { "name" : "nom", "type" : "string" },
+    { "name" : "plateforme", "type" : "string" },
+    { "name" : "genres", "type" : { "type": "array", "items": "string" } },
+    { "name" : "numeroVersion", "type" : "string" },
+    { "name" : "versionAnticipe", "type" : "boolean" }
+  ]
+}
