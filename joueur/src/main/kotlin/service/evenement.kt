@@ -596,4 +596,99 @@ class Evenement(private val joueur: Joueur) {
             println("⚠️ Erreur lors de l'affichage du profil : ${e.message}")
         }
     }
+
+    fun voterEvaluationParCible(titreJeu: String, pseudoAuteur: String, estUnLike: Boolean): Boolean {
+        val url = "jdbc:postgresql://86.252.172.215:5432/polysteam"
+        val user = "polysteam_user"
+        val pass = "PolySteam2026!"
+
+        return try {
+            Class.forName("org.postgresql.Driver")
+            DriverManager.getConnection(url, user, pass).use { conn ->
+                conn.autoCommit = false // Début d'une transaction pour la sécurité
+
+                // 1. Trouver l'ID de l'évaluation
+                val findIdSql = """
+                SELECT e.id FROM evaluation e
+                JOIN jeu_catalogue jc ON e.jeu_id = jc.id
+                WHERE jc.titre = ? AND e.joueur_pseudo = ?
+            """.trimIndent()
+
+                val stmtId = conn.prepareStatement(findIdSql)
+                stmtId.setString(1, titreJeu)
+                stmtId.setString(2, pseudoAuteur)
+                val rsId = stmtId.executeQuery()
+
+                if (!rsId.next()) {
+                    println("❌ Aucune évaluation trouvée.")
+                    return false
+                }
+                val evaluationId = rsId.getInt("id")
+
+                // 2. Vérifier si un vote existe déjà
+                val checkSql = "SELECT est_utile FROM votes_evaluation WHERE evaluation_id = ? AND votant_pseudo = ?"
+                val checkStmt = conn.prepareStatement(checkSql)
+                checkStmt.setInt(1, evaluationId)
+                checkStmt.setString(2, joueur.pseudo)
+                val rsVote = checkStmt.executeQuery()
+
+                if (rsVote.next()) {
+                    val ancienVoteEstLike = rsVote.getBoolean("est_utile")
+
+                    if (ancienVoteEstLike == estUnLike) {
+                        println("⚠️ Vous avez déjà voté ainsi.")
+                        return false
+                    } else {
+                        // CHANGEMENT DE VOTE (ex: Like -> Dislike)
+                        // Mise à jour du vote individuel
+                        val upVoteSql = "UPDATE votes_evaluation SET est_utile = ? WHERE evaluation_id = ? AND votant_pseudo = ?"
+                        val upVoteStmt = conn.prepareStatement(upVoteSql)
+                        upVoteStmt.setBoolean(1, estUnLike)
+                        upVoteStmt.setInt(2, evaluationId)
+                        upVoteStmt.setString(3, joueur.pseudo)
+                        upVoteStmt.executeUpdate()
+
+                        // Mise à jour des compteurs globaux dans la table evaluation
+                        val sqlCompteurs = if (estUnLike) {
+                            "UPDATE evaluation SET nombre_votes_utile = nombre_votes_utile + 1, nombre_votes_pas_utile = nombre_votes_pas_utile - 1 WHERE id = ?"
+                        } else {
+                            "UPDATE evaluation SET nombre_votes_utile = nombre_votes_utile - 1, nombre_votes_pas_utile = nombre_votes_pas_utile + 1 WHERE id = ?"
+                        }
+                        val upCounters = conn.prepareStatement(sqlCompteurs)
+                        upCounters.setInt(1, evaluationId)
+                        upCounters.executeUpdate()
+
+                        println("🔄 Votre vote a été modifié et les compteurs mis à jour.")
+                    }
+                } else {
+                    // NOUVEAU VOTE
+                    // Insertion du vote individuel
+                    val insertVoteSql = "INSERT INTO votes_evaluation (evaluation_id, votant_pseudo, est_utile) VALUES (?, ?, ?)"
+                    val insertStmt = conn.prepareStatement(insertVoteSql)
+                    insertStmt.setInt(1, evaluationId)
+                    insertStmt.setString(2, joueur.pseudo)
+                    insertStmt.setBoolean(3, estUnLike)
+                    insertStmt.executeUpdate()
+
+                    // Incrémentation du compteur correspondant
+                    val sqlIncr = if (estUnLike) {
+                        "UPDATE evaluation SET nombre_votes_utile = nombre_votes_utile + 1 WHERE id = ?"
+                    } else {
+                        "UPDATE evaluation SET nombre_votes_pas_utile = nombre_votes_pas_utile + 1 WHERE id = ?"
+                    }
+                    val incrStmt = conn.prepareStatement(sqlIncr)
+                    incrStmt.setInt(1, evaluationId)
+                    incrStmt.executeUpdate()
+
+                    println("✅ Nouveau vote enregistré et compteur incrémenté !")
+                }
+
+                conn.commit()
+                true
+            }
+        } catch (e: Exception) {
+            println("⚠️ Erreur : ${e.message}")
+            false
+        }
+    }
 }
