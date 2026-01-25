@@ -124,16 +124,24 @@ fun menuSocial(service: Evenement, scanner: Scanner) {
             service.accepterDemandeAmi(p)
         }
         "4" -> {
-            print("Pseudo à rechercher : "); val p = scanner.nextLine()
-            service.afficherProfilUtilisateur(p)
+            print("Pseudo à rechercher : ")
+            val p = scanner.nextLine()
 
-            // Logique contextuelle : après avoir vu le profil, on propose d'évaluer une de ses évals
-            println("\n[1] Voter pour une évaluation de ce joueur | [0] Retour")
-            if (scanner.nextLine() == "1") {
-                print("Titre du jeu concerné : "); val t = scanner.nextLine()
-                print("Est-ce utile ? (O/N) : ")
-                val vote = scanner.nextLine().uppercase() == "O"
-                service.voterEvaluationParCible(t, p, vote)
+            // On vérifie si le profil a pu être affiché
+            val existe = service.afficherProfilUtilisateur(p)
+
+            if (existe) {
+                println("\n[1] Voter pour une évaluation de ce joueur | [0] Retour")
+                print("👉 Choix : ")
+                if (scanner.nextLine() == "1") {
+                    print("Titre du jeu concerné : ")
+                    val t = scanner.nextLine()
+                    print("Est-ce utile ? (O/N) : ")
+                    val vote = scanner.nextLine().uppercase() == "O"
+                    service.voterEvaluationParCible(t, p, vote)
+                }
+            } else {
+                println("Retour au menu social...")
             }
         }
     }

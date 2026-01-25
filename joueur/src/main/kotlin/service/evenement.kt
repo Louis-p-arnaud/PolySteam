@@ -44,7 +44,7 @@ class Evenement(private val joueur: Joueur) {
         val pass = "PolySteam2026!"
         val random = Random()
 
-        // 1. Schéma Avro & Kafka (Inchangé)
+        // Schéma Avro & Kafka (Inchangé)
         val schemaString = """{"type": "record", "name": "RapportIncident", ...}""".trimIndent() // Ton schéma complet ici
         val schema = Schema.Parser().parse(schemaString)
         val props = Properties().apply {
@@ -57,7 +57,7 @@ class Evenement(private val joueur: Joueur) {
         val producer = KafkaProducer<String, GenericRecord>(props)
 
         try {
-            // 2. ÉTAPE 1 : Vérifier la possession (Ouverture/Fermeture immédiate)
+            // Vérifier la possession (Ouverture/Fermeture immédiate)
             val jeuId = DriverManager.getConnection(url, user, pass).use { conn ->
                 val checkSql = """
                 SELECT jc.id FROM jeu_catalogue jc
@@ -97,7 +97,7 @@ class Evenement(private val joueur: Joueur) {
                     break
                 }
 
-                // ÉTAPE 2 : Mise à jour du temps (On ouvre, on update, on ferme direct)
+                // Mise à jour du temps (On ouvre, on update, on ferme direct)
                 try {
                     DriverManager.getConnection(url, user, pass).use { conn ->
                         val updateSql = "UPDATE jeu_possede SET temps_jeu_minutes = temps_jeu_minutes + 60 WHERE joueur_pseudo = ? AND jeu_id = ?"
@@ -514,16 +514,17 @@ class Evenement(private val joueur: Joueur) {
     }
 
 
-    fun afficherProfilUtilisateur(pseudoRecherche: String) {
+    fun afficherProfilUtilisateur(pseudoRecherche: String): Boolean {
         val url = "jdbc:postgresql://86.252.172.215:5432/polysteam"
         val user = "polysteam_user"
         val pass = "PolySteam2026!"
 
         try {
             Class.forName("org.postgresql.Driver")
-            DriverManager.getConnection(url, user, pass).use { conn ->
+            // On utilise 'return' ici pour renvoyer le résultat du bloc .use
+            return DriverManager.getConnection(url, user, pass).use { conn ->
 
-                // Informations personnelles du joueur
+                // 1. Informations personnelles du joueur
                 val sqlJoueur = "SELECT pseudo, nom, prenom, date_naissance FROM joueur WHERE pseudo = ?"
                 val joueurExiste = conn.prepareStatement(sqlJoueur).use { stmtJ ->
                     stmtJ.setString(1, pseudoRecherche)
@@ -544,9 +545,10 @@ class Evenement(private val joueur: Joueur) {
                     }
                 }
 
-                if (!joueurExiste) return
+                // Si le joueur n'existe pas, on arrête et on retourne false
+                if (!joueurExiste) return false
 
-                // Bibliothèque et temps de jeu
+                // 2. Bibliothèque et temps de jeu
                 println("\n🎮 BIBLIOTHÈQUE ET TEMPS DE JEU :")
                 val sqlJeux = """
                 SELECT jc.titre, jc.plateforme, jp.temps_jeu_minutes 
@@ -569,7 +571,7 @@ class Evenement(private val joueur: Joueur) {
                     }
                 }
 
-                // Évaluations laissées par le joueur
+                // 3. Évaluations laissées par le joueur
                 println("\n⭐ ÉVALUATIONS LAISSÉES :")
                 val sqlEval = """
                 SELECT jc.titre, e.note, e.commentaire, e.date_publication
@@ -596,9 +598,11 @@ class Evenement(private val joueur: Joueur) {
                 }
 
                 println("============================================\n")
-            } // Fermeture automatique de la connexion
+                true // Succès : on retourne true à la fin du bloc .use
+            }
         } catch (e: Exception) {
             println("⚠️ Erreur lors de l'affichage du profil : ${e.message}")
+            return false // Erreur : on retourne false
         }
     }
 
