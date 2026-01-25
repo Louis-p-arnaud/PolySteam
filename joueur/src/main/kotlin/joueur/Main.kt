@@ -4,52 +4,63 @@ import java.util.Scanner
 
 fun main() {
     val sc = Scanner(System.`in`)
+    var engine: Evenement? = null
+    var utilisateurLogge: Joueur? = null
 
-    // On initialise l'engine (le joueur temporaire sera remplacé après l'inscription)
-    var engine = Evenement(Joueur("temp", "", "", ""))
+    println("--- 🎮 BIENVENUE SUR POLYSTEAM ---")
+    println("1. Se connecter")
+    println("2. S'inscrire")
+    print("Votre choix : ")
 
-    println("--- ✨ FORMULAIRE D'INSCRIPTION POLYSTEAM ---")
+    val choix = sc.nextLine()
 
-    print("Pseudo souhaité : ")
-    val pseudo = sc.nextLine()
+    if (choix == "1") {
+        print("Pseudo : ")
+        val p = sc.nextLine()
+        print("Mot de passe : ")
+        val m = sc.nextLine()
 
-    print("Mot de passe : ")
-    val motDePasse = sc.nextLine()
+        // On utilise un engine temporaire pour appeler la connexion
+        val tempEngine = Evenement(Joueur("guest", "", "", ""))
+        utilisateurLogge = tempEngine.seConnecter(p, m)
+    } else if (choix == "2") {
+        println("\n--- ✨ CRÉATION DE COMPTE ---")
+        print("Pseudo souhaité : ")
+        val pseudo = sc.nextLine()
 
-    print("Nom : ")
-    val nom = sc.nextLine()
+        print("Mot de passe (8 caractères min) : ")
+        val mdp = sc.nextLine()
 
-    print("Prénom : ")
-    val prenom = sc.nextLine()
+        print("Nom : ")
+        val nom = sc.nextLine()
 
-    print("Date de naissance (AAAA-MM-JJ) : ")
-    val dateNais = sc.nextLine()
+        print("Prénom : ")
+        val prenom = sc.nextLine()
 
-    // 1. Appel de ta fonction existante
-    // (J'assume qu'elle renvoie un Boolean ou qu'elle lance une exception en cas d'erreur)
-    try {
-        engine.inscrireJoueur(pseudo,motDePasse , nom, prenom, dateNais)
+        print("Date de naissance (AAAA-MM-JJ) : ")
+        val dateNais = sc.nextLine()
 
-        // 2. Mise à jour de l'objet Joueur pour la suite de la session
-        val nouveauJoueur = Joueur(pseudo, nom, prenom, dateNais)
-        engine = Evenement(nouveauJoueur)
+        // On utilise un engine temporaire pour l'inscription
+        val tempEngine = Evenement(Joueur(pseudo, nom, prenom, dateNais))
 
-        println("\n--- 👥 TROUVER DES AMIS ---")
-        print("Souhaitez-vous envoyer une demande d'ami ? (o/n) : ")
+        // Appelle ta fonction sécurisée avec les 5 paramètres
+        val succes = tempEngine.inscrireJoueur(pseudo, mdp, nom, prenom, dateNais)
 
-        if (sc.nextLine().lowercase() == "o") {
-            print("Pseudo du joueur à ajouter : ")
-            val pseudoAmi = sc.nextLine()
-
-            if (pseudoAmi.isNotBlank() && pseudoAmi != pseudo) {
-                engine.envoyerDemandeAmi(pseudoAmi)
-            } else {
-                println("⚠️ Action impossible (pseudo vide ou identique au vôtre).")
-            }
+        if (succes) {
+            // Si l'inscription réussit, on connecte l'utilisateur automatiquement
+            utilisateurLogge = Joueur(pseudo, nom, prenom, dateNais)
+        } else {
+            println("❌ Impossible de créer le compte. Retour au menu.")
         }
-    } catch (e: Exception) {
-        println("❌ Échec de l'inscription : ${e.message}")
     }
 
-    println("\nFin de la procédure.")
+    // Si la connexion a réussi, on lance le menu principal
+    if (utilisateurLogge != null) {
+        engine = Evenement(utilisateurLogge)
+        // Lancer la boucle du menu principal ici...
+        println("\nChargement de votre bibliothèque...")
+        engine.afficherJeuxPossedes()
+    } else {
+        println("Fin du programme.")
+    }
 }

@@ -139,48 +139,27 @@ class Evenement(private val joueur: Joueur) {
     }
 
     fun inscrireJoueur(pseudo: String, mdp: String, nom: String, prenom: String, dateN: String): Boolean {
-        // Validation locale (toujours faire avant d'ouvrir une connexion)
-        if (mdp.length < 8) {
-            println("❌ Erreur : Le mot de passe doit contenir au moins 8 caractères.")
-            return false
-        }
-
         val url = "jdbc:postgresql://86.252.172.215:5432/polysteam"
         val user = "polysteam_user"
         val password = "PolySteam2026!"
 
         try {
-            // Ouverture de la connexion avec .use
             DriverManager.getConnection(url, user, password).use { conn ->
+                // INSERT incluant maintenant la colonne mot_de_passe
+                val insertSql = "INSERT INTO joueur (pseudo, nom, prenom, date_naissance, mot_de_passe) VALUES (?, ?, ?, ?::date, ?)"
 
-                // Vérification de l'unicité avec .use pour le Statement et le ResultSet
-                val checkSql = "SELECT COUNT(*) FROM joueur WHERE pseudo = ?"
-                val estDisponible = conn.prepareStatement(checkSql).use { checkStmt ->
-                    checkStmt.setString(1, pseudo)
-                    checkStmt.executeQuery().use { rs ->
-                        !(rs.next() && rs.getInt(1) > 0)
-                    }
-                }
-
-                if (!estDisponible) {
-                    println("❌ Erreur : Le pseudo '$pseudo' est déjà utilisé.")
-                    return false
-                }
-
-                // Insertion avec .use pour le PreparedStatement
-                val insertSql = "INSERT INTO joueur (pseudo, nom, prenom, date_naissance) VALUES (?, ?, ?, ?::date)"
                 conn.prepareStatement(insertSql).use { insertStmt ->
                     insertStmt.setString(1, pseudo)
                     insertStmt.setString(2, nom)
                     insertStmt.setString(3, prenom)
                     insertStmt.setString(4, dateN)
+                    insertStmt.setString(5, mdp) // Enregistrement du MDP
 
                     insertStmt.executeUpdate()
                 }
-
                 println("✅ Compte créé avec succès pour $pseudo !")
                 return true
-            } // La connexion est AUTOMATIQUEMENT fermée ici, quoi qu'il arrive
+            }
         } catch (e: SQLException) {
             println("⚠️ Erreur base de données : ${e.message}")
             return false
@@ -828,6 +807,47 @@ class Evenement(private val joueur: Joueur) {
             println("⚠️ Erreur d'affichage : ${e.message}")
         }
     }
+
+    fun seConnecter(pseudoSaisi: String, mdpSaisi: String): Joueur? {
+        val url = "jdbc:postgresql://86.252.172.215:5432/polysteam"
+        val user = "polysteam_user"
+        val pass = "PolySteam2026!"
+
+        try {
+            Class.forName("org.postgresql.Driver")
+            return DriverManager.getConnection(url, user, pass).use { conn ->
+                // On récupère les infos du joueur si le pseudo et le mot de passe correspondent
+                val sql = "SELECT pseudo, nom, prenom, date_naissance FROM joueur WHERE pseudo = ? AND mot_de_passe = ?"
+
+                conn.prepareStatement(sql).use { stmt ->
+                    stmt.setString(1, pseudoSaisi)
+                    stmt.setString(2, mdpSaisi)
+
+                    stmt.executeQuery().use { rs ->
+                        if (rs.next()) {
+                            println("✅ Connexion réussie ! Ravie de vous revoir, ${rs.getString("prenom")}.")
+                            // On retourne un objet Joueur complet pour mettre à jour la session
+                            Joueur(
+                                rs.getString("pseudo"),
+                                rs.getString("nom"),
+                                rs.getString("prenom"),
+                                rs.getString("date_naissance")
+                            )
+                        } else {
+                            println("❌ Erreur : Pseudo ou mot de passe incorrect.")
+                            null
+                        }
+                    }
+                }
+            }
+        } catch (e: Exception) {
+            println("⚠️ Erreur lors de la connexion : ${e.message}")
+            return null
+        }
+    }
+
+
+
 
 
 }
