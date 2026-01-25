@@ -1055,6 +1055,63 @@ class Evenement(private val joueur: Joueur) {
         }
     }
 
+    fun consulterEditeur(nomEditeur: String) {
+        val url = "jdbc:postgresql://86.252.172.215:5432/polysteam"
+        val user = "polysteam_user"
+        val pass = "PolySteam2026!"
+
+        try {
+            DriverManager.getConnection(url, user, pass).use { conn ->
+                // Informations générales de l'éditeur
+                val sqlEditeur = "SELECT id, nom, date_creation, est_independant FROM editeur WHERE nom ILIKE ?"
+
+                val editeurId = conn.prepareStatement(sqlEditeur).use { stmt ->
+                    stmt.setString(1, nomEditeur)
+                    stmt.executeQuery().use { rs ->
+                        if (rs.next()) {
+                            val estIndep = if (rs.getBoolean("est_independant")) "Oui ✅" else "Non 🏢"
+                            println("\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
+                            println("🏢 ÉDITEUR : ${rs.getString("nom").uppercase()}")
+                            println("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
+                            println("📅 Création      : ${rs.getDate("date_creation")}")
+                            println("🌿 Indépendant   : $estIndep")
+                            rs.getString("id")
+                        } else null
+                    }
+                }
+
+                if (editeurId == null) {
+                    println("❌ Aucun éditeur trouvé au nom de '$nomEditeur'.")
+                    return
+                }
+
+                // Liste des jeux possédés dans le catalogue
+                val sqlJeux = """
+                SELECT DISTINCT titre, plateforme, prix_actuel 
+                FROM jeu_catalogue 
+                WHERE editeur_id = ? 
+                ORDER BY titre ASC
+            """.trimIndent()
+
+                conn.prepareStatement(sqlJeux).use { stmtJ ->
+                    stmtJ.setString(1, editeurId)
+                    stmtJ.executeQuery().use { rsJ ->
+                        println("\n📚 JEUX AU CATALOGUE :")
+                        var aDesJeux = false
+                        while (rsJ.next()) {
+                            aDesJeux = true
+                            println(" • ${rsJ.getString("titre")} [${rsJ.getString("plateforme")}] - ${rsJ.getDouble("prix_actuel")}€")
+                        }
+                        if (!aDesJeux) println(" Aucun jeu répertorié pour cet éditeur.")
+                        println("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
+                    }
+                }
+            }
+        } catch (e: Exception) {
+            println("⚠️ Erreur lors de la consultation : ${e.message}")
+        }
+    }
+
 
 
 

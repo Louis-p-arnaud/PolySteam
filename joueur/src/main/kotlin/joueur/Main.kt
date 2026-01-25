@@ -248,10 +248,11 @@ fun menuBoutique(service: Evenement, scanner: Scanner) {
         println("\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
         println("             🛒 BOUTIQUE POLYSTEAM")
         println("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
-        println("1. 📚 Voir tous les titres disponibles") // Nouvelle option
+        println("1. 📚 Voir tous les jeux disponibles") // Nouvelle option
         println("2. 🔍 Voir la fiche détaillée d'un jeu")
         println("3. 💳 Acheter un jeu")
         println("4. 💖 Gérer ma Wishlist")
+        println("5. 🏢 En savoir plus sur un Éditeur")
         println("0. ↩️  Retour")
         print("\n👉 Choix : ")
 
@@ -275,6 +276,12 @@ fun menuBoutique(service: Evenement, scanner: Scanner) {
                 attendreUtilisateur(scanner)
             }
             "4" -> menuWishlist(service, scanner)
+            "5" -> {
+                print("Nom de l'éditeur : ")
+                val nom = scanner.nextLine()
+                service.consulterEditeur(nom)
+                attendreUtilisateur(scanner)
+            }
             "0" -> continuer = false
             else -> println("❌ Option invalide.")
         }
@@ -445,12 +452,13 @@ fun menuProfil(service: Evenement, utilisateur: Joueur, scanner: Scanner) {
 
                         val note = noteStr.toIntOrNull()
                         if (note == null || note !in 0..5) {
-                            println("❌ La note doit être un nombre entre 0 et 5.")
+                            println("❌ La note doit être entre 0 et 5.")
                         } else {
                             print("Commentaire : ")
                             val commentaire = scanner.nextLine().trim()
 
-                            service.evaluerJeu(titre, plateforme, note, commentaire)
+                            // Multipliez la note par 2 pour la convertir sur 10 avant l'envoi
+                            service.evaluerJeu(titre, plateforme, note * 2, commentaire)
                         }
                     }
                 }
