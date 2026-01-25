@@ -45,8 +45,24 @@ class Evenement(private val joueur: Joueur) {
         val random = Random()
 
         // Schéma Avro & Kafka (Inchangé)
-        val schemaString = """{"type": "record", "name": "RapportIncident", ...}""".trimIndent() // Ton schéma complet ici
-        val schema = Schema.Parser().parse(schemaString)
+        // 1. Définition du Schéma Avro (CORRIGÉ)
+        val schemaString = """
+        {
+          "type": "record",
+          "name": "RapportIncident",
+          "namespace": "com.polysteam.avro",
+          "fields": [
+            {"name": "joueur_pseudo", "type": "string"},
+            {"name": "jeu_id", "type": "string"},
+            {"name": "titre", "type": "string"},
+            {"name": "plateforme", "type": "string"},
+            {"name": "type_erreur", "type": "string"},
+            {"name": "timestamp", "type": "long"}
+          ]
+        }
+        """.trimIndent()
+
+        val schema = org.apache.avro.Schema.Parser().parse(schemaString)
         val props = Properties().apply {
             put("bootstrap.servers", "86.252.172.215:9092")
             put("schema.registry.url", "http://86.252.172.215:8081")
