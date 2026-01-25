@@ -478,11 +478,11 @@ fun menuProfil(service: Evenement, utilisateur: Joueur, scanner: Scanner) {
 fun menuWishlist(service: Evenement, scanner: Scanner) {
     var enWishlist = true
     while (enWishlist) {
-        // Affiche la liste actuelle
         service.afficherWishlist()
 
         println("\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
         println("1. ✨ Ajouter un jeu à ma liste")
+        println("2. 🗑️  Retirer un jeu de ma liste") // Nouvelle option
         println("0. ↩️  Retour")
         print("\n👉 Choix : ")
 
@@ -493,11 +493,19 @@ fun menuWishlist(service: Evenement, scanner: Scanner) {
                 service.ajouterALaWishlist(titre)
                 attendreUtilisateur(scanner)
             }
+            "2" -> {
+                print("Titre du jeu à retirer : ")
+                val titre = scanner.nextLine()
+                service.retirerDeLaWishlist(titre)
+                attendreUtilisateur(scanner)
+            }
             "0" -> enWishlist = false
             else -> println("❌ Option invalide.")
         }
     }
 }
+
+
 
 // ═══════════════════════════════════════════════════════════════════
 // FONCTIONS UTILITAIRES

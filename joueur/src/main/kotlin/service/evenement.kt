@@ -189,7 +189,7 @@ class Evenement(private val joueur: Joueur) {
             Class.forName("org.postgresql.Driver")
             DriverManager.getConnection(url, user, pass).use { conn ->
 
-                // Récupération de l'ID et de la version (avec .use pour stmt et rs)
+                // 1. Récupération de l'ID et de la version
                 val findIdSql = "SELECT id, version_actuelle FROM jeu_catalogue WHERE titre = ? AND plateforme = ?"
                 val infoJeu = conn.prepareStatement(findIdSql).use { stmt ->
                     stmt.setString(1, titreJeu)
@@ -207,7 +207,7 @@ class Evenement(private val joueur: Joueur) {
                 }
                 val (jeuId, versionCatalogue) = infoJeu
 
-                // Vérification de la possession (avec .use)
+                // 2. Vérification de la possession
                 val checkSql = "SELECT COUNT(*) FROM jeu_possede WHERE joueur_pseudo = ? AND jeu_id = ?"
                 val dejaPossede = conn.prepareStatement(checkSql).use { stmt ->
                     stmt.setString(1, joueur.pseudo)
@@ -222,7 +222,7 @@ class Evenement(private val joueur: Joueur) {
                     return false
                 }
 
-                // Insertion de l'achat (avec .use)
+                // 3. Insertion de l'achat
                 val insertSql = "INSERT INTO jeu_possede (joueur_pseudo, jeu_id, temps_jeu_minutes, version_installee) VALUES (?, ?, 0, ?)"
                 conn.prepareStatement(insertSql).use { stmt ->
                     stmt.setString(1, joueur.pseudo)
@@ -232,6 +232,18 @@ class Evenement(private val joueur: Joueur) {
                 }
 
                 println("💰 Achat réussi ! '$titreJeu' ajouté sur $supportSaisi.")
+
+                // Nettoyage automatique de la wishlist
+                val deleteWishSql = "DELETE FROM wishlist WHERE joueur_pseudo = ? AND jeu_id = ?"
+                conn.prepareStatement(deleteWishSql).use { stmtDel ->
+                    stmtDel.setString(1, joueur.pseudo)
+                    stmtDel.setString(2, jeuId)
+                    val rowsDeleted = stmtDel.executeUpdate()
+                    if (rowsDeleted > 0) {
+                        println("✨ Ce jeu a été retiré de votre wishlist.")
+                    }
+                }
+
                 true
             }
         } catch (e: Exception) {
@@ -1109,6 +1121,47 @@ class Evenement(private val joueur: Joueur) {
             }
         } catch (e: Exception) {
             println("⚠️ Erreur lors de la consultation : ${e.message}")
+        }
+    }
+
+    fun retirerDeLaWishlist(titreJeu: String): Boolean {
+        val url = "jdbc:postgresql://86.252.172.215:5432/polysteam"
+        val user = "polysteam_user"
+        val pass = "PolySteam2026!"
+
+        return try {
+            DriverManager.getConnection(url, user, pass).use { conn ->
+                // 1. Trouver l'ID du jeu à partir du titre
+                val sqlId = "SELECT id FROM jeu_catalogue WHERE titre = ? LIMIT 1"
+                val jeuId = conn.prepareStatement(sqlId).use { stmt ->
+                    stmt.setString(1, titreJeu)
+                    stmt.executeQuery().use { rs -> if (rs.next()) rs.getString("id") else null }
+                }
+
+                if (jeuId == null) {
+                    println("❌ Jeu non trouvé dans le catalogue.")
+                    return false
+                }
+
+                // 2. Supprimer de la wishlist
+                val sqlDelete = "DELETE FROM wishlist WHERE joueur_pseudo = ? AND jeu_id = ?"
+                val rowsDeleted = conn.prepareStatement(sqlDelete).use { stmt ->
+                    stmt.setString(1, joueur.pseudo)
+                    stmt.setString(2, jeuId)
+                    stmt.executeUpdate()
+                }
+
+                if (rowsDeleted > 0) {
+                    println("🗑️ '$titreJeu' a été retiré de votre liste de souhaits.")
+                    true
+                } else {
+                    println("ℹ️ Ce jeu n'était pas dans votre wishlist.")
+                    false
+                }
+            }
+        } catch (e: Exception) {
+            println("⚠️ Erreur lors de la suppression : ${e.message}")
+            false
         }
     }
 
