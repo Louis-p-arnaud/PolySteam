@@ -145,7 +145,7 @@ fun menuPrincipal(utilisateur: Joueur, scanner: Scanner) {
         println("      └─ Gérer mes jeux, jouer, mettre à jour")
         println()
         println("2. 🛒 Boutique")
-        println("      └─ Découvrir et acheter des jeux")
+        println("      └─ Découvrir et acheter des jeux, gérer ma wishlist")
         println()
         println("3. 👥 Réseau Social")
         println("      └─ Gérer mes amis et consulter des profils")

@@ -949,9 +949,7 @@ class Evenement(private val joueur: Joueur) {
                 val sqlId = "SELECT id FROM jeu_catalogue WHERE titre = ? LIMIT 1"
                 val jeuId = conn.prepareStatement(sqlId).use { stmt ->
                     stmt.setString(1, titreJeu)
-                    stmt.executeQuery().use { rs ->
-                        if (rs.next()) rs.getString("id") else null // Changé en getString
-                    }
+                    stmt.executeQuery().use { rs -> if (rs.next()) rs.getString("id") else null }
                 }
 
                 if (jeuId == null) {
@@ -959,22 +957,37 @@ class Evenement(private val joueur: Joueur) {
                     return false
                 }
 
-                // 2. Insérer dans la wishlist (en utilisant setString pour l'ID)
+                // 2. VÉRIFICATION : Est-ce que le joueur possède déjà ce jeu ?
+                val sqlCheckPossede = "SELECT 1 FROM jeu_possede WHERE joueur_pseudo = ? AND jeu_id = ?"
+                val dejaPossede = conn.prepareStatement(sqlCheckPossede).use { stmt ->
+                    stmt.setString(1, joueur.pseudo)
+                    stmt.setString(2, jeuId)
+                    stmt.executeQuery().use { rs -> rs.next() }
+                }
+
+                if (dejaPossede) {
+                    println("❌ Impossible : Vous possédez déjà '$titreJeu' dans votre bibliothèque !")
+                    return false
+                }
+
+                // 3. Insertion dans la wishlist
+                // Le bloc catch gérera automatiquement si le jeu est déjà en wishlist (Doublon PK)
                 val sqlInsert = "INSERT INTO wishlist (joueur_pseudo, jeu_id) VALUES (?, ?)"
                 conn.prepareStatement(sqlInsert).use { stmt ->
                     stmt.setString(1, joueur.pseudo)
-                    stmt.setString(2, jeuId) // Changé en setString
+                    stmt.setString(2, jeuId)
                     stmt.executeUpdate()
                 }
+
                 println("💖 $titreJeu a été ajouté à votre liste de souhaits !")
                 true
             }
         } catch (e: Exception) {
-            println("⚠️ Erreur : Jeu déjà présent ou problème de connexion.")
+            // En PostgreSQL, l'erreur de duplication (23505) est levée si la PK existe déjà
+            println("⚠️ Info : Ce jeu est probablement déjà dans votre wishlist.")
             false
         }
     }
-
     fun afficherWishlist() {
         val url = "jdbc:postgresql://86.252.172.215:5432/polysteam"
         val user = "polysteam_user"
