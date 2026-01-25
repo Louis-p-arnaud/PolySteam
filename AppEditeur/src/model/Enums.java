@@ -1,3 +1,5 @@
+package model;
+
 public class Enums {
     public enum TYPE_EDITEUR {
         ENTREPRISE, INDEPENDANT
