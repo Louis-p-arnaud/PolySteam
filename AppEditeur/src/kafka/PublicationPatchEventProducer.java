@@ -25,8 +25,8 @@ import java.util.concurrent.TimeUnit;
  */
 public class PublicationPatchEventProducer {
 
-    private static final String DEFAULT_BOOTSTRAP_SERVERS = "localhost:9092";
-    private static final String DEFAULT_SCHEMA_REGISTRY = "http://localhost:8081";
+    private static final String KAFKA_BOOTSTRAP_SERVERS = "86.252.172.215:9092";
+    private static final String SCHEMA_REGISTRY_URL = "http://86.252.172.215:8081";
     private static final String DEFAULT_TOPIC = "polysteam.publication.patch";
 
     private final KafkaProducer<String, GenericRecord> producer;
@@ -66,8 +66,8 @@ public class PublicationPatchEventProducer {
 
     private static Properties createDefaultProperties() {
         Properties p = new Properties();
-        p.put(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, DEFAULT_BOOTSTRAP_SERVERS);
-        p.put("schema.registry.url", DEFAULT_SCHEMA_REGISTRY);
+        p.put(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, KAFKA_BOOTSTRAP_SERVERS);
+        p.put("schema.registry.url", SCHEMA_REGISTRY_URL);
         p.put(ProducerConfig.ACKS_CONFIG, "all");
         p.put(ProducerConfig.RETRIES_CONFIG, Integer.toString(3));
         p.put(ProducerConfig.CLIENT_ID_CONFIG, "appediteur-publication-patch-producer");
