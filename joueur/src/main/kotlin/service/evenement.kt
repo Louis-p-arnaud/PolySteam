@@ -315,13 +315,13 @@ class Evenement(private val joueur: Joueur) {
 
                 // Requête SQL avec jointures pour l'éditeur et le genre
                 val sql = """
-                SELECT jc.titre, jc.date_publication, e.nom AS nom_editeur, jc.version_actuelle, 
-                       jc.est_version_anticipee, jc.prix_actuel, jg.genre, jc.plateforme
-                FROM jeu_catalogue jc
-                JOIN editeur e ON jc.editeur_id = e.id
-                LEFT JOIN jeu_genre jg ON jc.id = jg.jeu_id
-                WHERE jc.titre = ?
-            """.trimIndent()
+                    SELECT jc.titre, jc.date_publication, e.nom AS nom_editeur, jc.version_actuelle, 
+                           jc.est_version_anticipee, jc.prix_actuel, jg.genre, jc.plateforme
+                    FROM jeu_catalogue jc
+                    JOIN editeur e ON jc.editeur_id = e.id
+                    LEFT JOIN jeu_genre jg ON jc.id = jg.jeu_id
+                    WHERE jc.titre = ?
+                """.trimIndent()
 
                 // Utilisation de .use pour le Statement et le ResultSet
                 conn.prepareStatement(sql).use { stmt ->
@@ -565,12 +565,12 @@ class Evenement(private val joueur: Joueur) {
                 // 2. Bibliothèque et temps de jeu
                 println("\n🎮 BIBLIOTHÈQUE ET TEMPS DE JEU :")
                 val sqlJeux = """
-                SELECT jc.titre, jc.plateforme, jp.temps_jeu_minutes 
-                FROM jeu_possede jp
-                JOIN jeu_catalogue jc ON jp.jeu_id = jc.id
-                WHERE jp.joueur_pseudo = ?
-                ORDER BY jp.temps_jeu_minutes DESC
-            """.trimIndent()
+                    SELECT jc.titre, jc.plateforme, jp.temps_jeu_minutes 
+                    FROM jeu_possede jp
+                    JOIN jeu_catalogue jc ON jp.jeu_id = jc.id
+                    WHERE jp.joueur_pseudo = ?
+                    ORDER BY jp.temps_jeu_minutes DESC
+                """.trimIndent()
 
                 conn.prepareStatement(sqlJeux).use { stmtG ->
                     stmtG.setString(1, pseudoRecherche)
@@ -582,6 +582,32 @@ class Evenement(private val joueur: Joueur) {
                             println("• ${rsG.getString("titre")} [${rsG.getString("plateforme")}] : ${t / 60}h ${t % 60}min")
                         }
                         if (!aDesJeux) println("Aucun jeu dans la bibliothèque.")
+                    }
+                }
+                //3. Wishlist du joueur
+                println("\n💖 LISTE DE SOUHAITS (WISHLIST) :")
+                val sqlWish = """
+                    SELECT jc.titre, jc.plateforme, jc.prix_actuel
+                    FROM wishlist w
+                    JOIN jeu_catalogue jc ON w.jeu_id = jc.id
+                    WHERE w.joueur_pseudo = ?
+                    ORDER BY w.date_ajout DESC
+                """.trimIndent()
+
+                conn.prepareStatement(sqlWish).use { stmtW ->
+                    stmtW.setString(1, pseudoRecherche)
+                    stmtW.executeQuery().use { rsW ->
+                        var aDesSouhaits = false
+                        while (rsW.next()) {
+                            aDesSouhaits = true
+                            // ATTENTION : Ici le nom doit être identique au SELECT du SQL
+                            val prix = rsW.getDouble("prix_actuel")
+                            val titre = rsW.getString("titre")
+                            val plateforme = rsW.getString("plateforme")
+
+                            println("• $titre [$plateforme] - $prix€")
+                        }
+                        if (!aDesSouhaits) println("Aucun jeu dans la liste de souhaits.")
                     }
                 }
 
