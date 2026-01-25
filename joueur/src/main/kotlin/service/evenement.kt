@@ -310,54 +310,60 @@ class Evenement(private val joueur: Joueur) {
         val pass = "PolySteam2026!"
 
         try {
-            Class.forName("org.postgresql.Driver")
             DriverManager.getConnection(url, user, pass).use { conn ->
+                // 1. On récupère d'abord les infos générales (avec STRING_AGG pour grouper les genres)
+                val sqlInfos = """
+                SELECT jc.titre, jc.date_publication, e.nom AS nom_editeur, 
+                       STRING_AGG(jg.genre, ', ') AS genres
+                FROM jeu_catalogue jc
+                JOIN editeur e ON jc.editeur_id = e.id
+                LEFT JOIN jeu_genre jg ON jc.id = jg.jeu_id
+                WHERE jc.titre = ?
+                GROUP BY jc.titre, jc.date_publication, e.nom
+                LIMIT 1
+            """.trimIndent()
 
-                // Requête SQL avec jointures pour l'éditeur et le genre
-                val sql = """
-                    SELECT jc.titre, jc.date_publication, e.nom AS nom_editeur, jc.version_actuelle, 
-                           jc.est_version_anticipee, jc.prix_actuel, jg.genre, jc.plateforme
-                    FROM jeu_catalogue jc
-                    JOIN editeur e ON jc.editeur_id = e.id
-                    LEFT JOIN jeu_genre jg ON jc.id = jg.jeu_id
-                    WHERE jc.titre = ?
-                """.trimIndent()
-
-                // Utilisation de .use pour le Statement et le ResultSet
-                conn.prepareStatement(sql).use { stmt ->
+                val aEteTrouve = conn.prepareStatement(sqlInfos).use { stmt ->
                     stmt.setString(1, titreRecherche)
-
                     stmt.executeQuery().use { rs ->
-                        var jeuTrouve = false
+                        if (rs.next()) {
+                            println("\n--- 📄 FICHE INFORMATION : ${rs.getString("titre")} ---")
+                            println("📅 Date Publication : ${rs.getDate("date_publication")}")
+                            println("🏢 Éditeur          : ${rs.getString("nom_editeur")}")
+                            println("🏷️ Genre(s)         : ${rs.getString("genres") ?: "Non spécifié"}")
+                            true
+                        } else false
+                    }
+                }
 
-                        while (rs.next()) {
-                            // Affichage de l'en-tête uniquement à la première ligne trouvée
-                            if (!jeuTrouve) {
-                                println("\n--- 📄 FICHE INFORMATION : ${rs.getString("titre")} ---")
-                                println("📅 Date Publication : ${rs.getDate("date_publication")}")
-                                println("🏢 Éditeur          : ${rs.getString("nom_editeur")}")
-                                println("🏷️ Genre           : ${rs.getString("genre") ?: "Non spécifié"}")
-                                println("\nDisponibilité par plateforme :")
-                                jeuTrouve = true
-                            }
+                if (!aEteTrouve) {
+                    println("❌ Aucun jeu trouvé pour le titre '$titreRecherche'.")
+                    return
+                }
 
-                            // Détails spécifiques à chaque plateforme (boucle sur les résultats)
-                            val plateforme = rs.getString("plateforme")
-                            val prix = rs.getDouble("prix_actuel")
-                            val version = rs.getString("version_actuelle")
-                            val anticipe = if (rs.getBoolean("est_version_anticipee")) "[ACCÈS ANTICIPÉ]" else ""
+                // 2. On récupère les plateformes SANS doublons avec DISTINCT
+                val sqlPlateformes = """
+                SELECT DISTINCT plateforme, prix_actuel, version_actuelle, est_version_anticipee
+                FROM jeu_catalogue 
+                WHERE titre = ?
+            """.trimIndent()
 
-                            println("  • [$plateforme] : $prix€ | Version : $version $anticipe")
+                conn.prepareStatement(sqlPlateformes).use { stmtP ->
+                    stmtP.setString(1, titreRecherche)
+                    stmtP.executeQuery().use { rsP ->
+                        println("\nDisponibilité par plateforme :")
+                        while (rsP.next()) {
+                            val plat = rsP.getString("plateforme")
+                            val prix = rsP.getDouble("prix_actuel")
+                            val vers = rsP.getString("version_actuelle")
+                            val anticipe = if (rsP.getBoolean("est_version_anticipee")) "[ACCÈS ANTICIPÉ]" else ""
+                            println("  • [$plat] : $prix€ | Version : $vers $anticipe")
                         }
-
-                        if (!jeuTrouve) {
-                            println("❌ Aucun jeu trouvé pour le titre '$titreRecherche'.")
-                        }
-                    } // Le ResultSet est fermé ici
-                } // Le PreparedStatement est fermé ici
-            } // La Connection est fermée ici
+                    }
+                }
+            }
         } catch (e: Exception) {
-            println("⚠️ Erreur lors de l'affichage de la fiche : ${e.message}")
+            println("⚠️ Erreur : ${e.message}")
         }
     }
 
@@ -1017,6 +1023,35 @@ class Evenement(private val joueur: Joueur) {
             }
         } catch (e: Exception) {
             println("⚠️ Erreur lors de l'affichage de la wishlist : ${e.message}")
+        }
+    }
+
+    fun afficherCatalogueTitres() {
+        val url = "jdbc:postgresql://86.252.172.215:5432/polysteam"
+        val user = "polysteam_user"
+        val pass = "PolySteam2026!"
+
+        try {
+            DriverManager.getConnection(url, user, pass).use { conn ->
+                // On récupère les titres distincts pour ne pas afficher 4 fois le même jeu s'il est sur 4 supports
+                val sql = "SELECT DISTINCT titre, prix_actuel FROM jeu_catalogue ORDER BY titre ASC"
+
+                conn.prepareStatement(sql).use { stmt ->
+                    stmt.executeQuery().use { rs ->
+                        println("\n--- 📚 CATALOGUE DES JEUX DISPONIBLES ---")
+                        var count = 0
+                        while (rs.next()) {
+                            count++
+                            val titre = rs.getString("titre")
+                            val prix = rs.getDouble("prix_actuel")
+                            println("$count. $titre (À partir de $prix€)")
+                        }
+                        if (count == 0) println("Le catalogue est actuellement vide.")
+                    }
+                }
+            }
+        } catch (e: Exception) {
+            println("⚠️ Erreur lors de la récupération du catalogue : ${e.message}")
         }
     }
 

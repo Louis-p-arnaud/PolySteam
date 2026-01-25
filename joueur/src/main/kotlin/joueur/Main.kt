@@ -244,75 +244,39 @@ fun menuBibliotheque(service: Evenement, scanner: Scanner) {
 
 fun menuBoutique(service: Evenement, scanner: Scanner) {
     var continuer = true
-
     while (continuer) {
-        println("\n┌────────────────────────────────────────────────┐")
-        println("│          🛒 BOUTIQUE POLYSTEAM                 │")
-        println("└────────────────────────────────────────────────┘")
-        println("\nDécouvrez et achetez des jeux pour enrichir votre")
-        println("bibliothèque !")
         println("\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
-        println("Que souhaitez-vous faire ?")
+        println("             🛒 BOUTIQUE POLYSTEAM")
         println("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
-        println("1. 📋 Consulter la fiche d'un jeu")
-        println("2. 💳 Acheter un jeu")
-        println("3. 💖 Gérer ma wishlist")
-        println("0. ↩️  Retour au menu principal")
-        println("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
-        print("👉 Votre choix : ")
+        println("1. 📚 Voir tous les titres disponibles") // Nouvelle option
+        println("2. 🔍 Voir la fiche détaillée d'un jeu")
+        println("3. 💳 Acheter un jeu")
+        println("4. 💖 Gérer ma Wishlist")
+        println("0. ↩️  Retour")
+        print("\n👉 Choix : ")
 
-        when (scanner.nextLine().trim()) {
+        when (scanner.nextLine()) {
             "1" -> {
-                println("\n📋 CONSULTATION DE FICHE")
-                print("Titre du jeu à consulter : ")
-                val titre = scanner.nextLine().trim()
-
-                if (titre.isEmpty()) {
-                    println("❌ Le titre ne peut pas être vide.")
-                } else {
-                    service.afficherFicheJeuParTitre(titre)
-                }
-
+                service.afficherCatalogueTitres()
                 attendreUtilisateur(scanner)
             }
             "2" -> {
-                println("\n💳 ACHAT DE JEU")
-                print("Titre du jeu à acheter : ")
-                val titre = scanner.nextLine().trim()
-
-                if (titre.isEmpty()) {
-                    println("❌ Le titre ne peut pas être vide.")
-                } else {
-                    print("Plateforme (PC/PS5/Xbox/Switch) : ")
-                    val plateforme = scanner.nextLine().trim()
-
-                    if (plateforme.isEmpty()) {
-                        println("❌ La plateforme ne peut pas être vide.")
-                    } else {
-                        service.acheterJeuParTitreEtSupport(titre, plateforme)
-                    }
-                }
-
+                print("Titre du jeu : ")
+                val t = scanner.nextLine()
+                service.afficherFicheJeuParTitre(t)
                 attendreUtilisateur(scanner)
             }
-            // Dans Main.kt, fonction menuBoutique
             "3" -> {
-                println("\n--- 💖 MA WISHLIST ---")
-                service.afficherWishlist()
-                println("\n[1] Ajouter un jeu | [0] Retour")
-                print("👉 Choix : ")
-                if (scanner.nextLine() == "1") {
-                    print("Titre du jeu à ajouter : ")
-                    val titre = scanner.nextLine()
-                    service.ajouterALaWishlist(titre)
-                }
+                print("Titre du jeu : ")
+                val t = scanner.nextLine()
+                print("Plateforme : ")
+                val p = scanner.nextLine()
+                service.acheterJeuParTitreEtSupport(t, p)
                 attendreUtilisateur(scanner)
             }
-            "0" -> {
-                continuer = false
-                println("↩️  Retour au menu principal...")
-            }
-            else -> println("❌ Option invalide. Veuillez choisir 1, 2 ou 0.")
+            "4" -> menuWishlist(service, scanner)
+            "0" -> continuer = false
+            else -> println("❌ Option invalide.")
         }
     }
 }
