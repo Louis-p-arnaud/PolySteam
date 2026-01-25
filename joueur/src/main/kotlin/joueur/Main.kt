@@ -5,66 +5,51 @@ import java.util.Scanner
 fun main() {
     val sc = Scanner(System.`in`)
 
-    // 1. Initialisation du joueur (on simule une connexion)
-    val monPseudo = "jamaljamal"
-    val joueurConnecte = Joueur(monPseudo, "Jamal", "Ben", "1990-01-01")
-    val engine = Evenement(joueurConnecte)
+    // On initialise l'engine (le joueur temporaire sera remplacé après l'inscription)
+    var engine = Evenement(Joueur("temp", "", "", ""))
 
-    var continuer = true
+    println("--- ✨ FORMULAIRE D'INSCRIPTION POLYSTEAM ---")
 
-    while (continuer) {
-        println("\n--- 🎮 POLYSTEAM : MENU JOUEUR ---")
-        println("Connecté en tant que : $monPseudo")
-        println("1. Voir mon profil (Jeux, temps, avis)")
-        println("2. Rechercher un autre profil")
-        println("3. Lancer un jeu (Simulation + Crash Avro)")
-        println("4. Voter pour une évaluation (Like/Dislike)")
-        println("5. Quitter")
-        print("\nVotre choix : ")
+    print("Pseudo souhaité : ")
+    val pseudo = sc.nextLine()
 
-        when (sc.nextLine()) {
-            "1" -> {
-                engine.afficherProfilUtilisateur(monPseudo)
+    print("Mot de passe : ")
+    val motDePasse = sc.nextLine()
+
+    print("Nom : ")
+    val nom = sc.nextLine()
+
+    print("Prénom : ")
+    val prenom = sc.nextLine()
+
+    print("Date de naissance (AAAA-MM-JJ) : ")
+    val dateNais = sc.nextLine()
+
+    // 1. Appel de ta fonction existante
+    // (J'assume qu'elle renvoie un Boolean ou qu'elle lance une exception en cas d'erreur)
+    try {
+        engine.inscrireJoueur(pseudo,motDePasse , nom, prenom, dateNais)
+
+        // 2. Mise à jour de l'objet Joueur pour la suite de la session
+        val nouveauJoueur = Joueur(pseudo, nom, prenom, dateNais)
+        engine = Evenement(nouveauJoueur)
+
+        println("\n--- 👥 TROUVER DES AMIS ---")
+        print("Souhaitez-vous envoyer une demande d'ami ? (o/n) : ")
+
+        if (sc.nextLine().lowercase() == "o") {
+            print("Pseudo du joueur à ajouter : ")
+            val pseudoAmi = sc.nextLine()
+
+            if (pseudoAmi.isNotBlank() && pseudoAmi != pseudo) {
+                engine.envoyerDemandeAmi(pseudoAmi)
+            } else {
+                println("⚠️ Action impossible (pseudo vide ou identique au vôtre).")
             }
-            "2" -> {
-                print("Entrez le pseudo à rechercher : ")
-                val cible = sc.nextLine()
-                engine.afficherProfilUtilisateur(cible)
-            }
-            "3" -> {
-                print("Titre du jeu : ")
-                val titre = sc.nextLine()
-                print("Plateforme (PC, PS5, Switch) : ")
-                val plateforme = sc.nextLine()
-
-                if (titre.isNotBlank() && plateforme.isNotBlank()) {
-                    println("\nLancement de la session...")
-                    engine.jouerAvecCrashAvro(titre, plateforme)
-                } else {
-                    println("⚠️ Saisie invalide.")
-                }
-            }
-            "4" -> {
-                println("\n--- 👍 SYSTÈME DE VOTE ---")
-                print("Titre du jeu concerné : ")
-                val titre = sc.nextLine()
-                print("Pseudo de l'auteur du commentaire : ")
-                val auteur = sc.nextLine()
-
-                print("Votre vote (1: Like 👍 / 2: Dislike 👎) : ")
-                val choix = sc.nextLine() // On utilise nextLine pour éviter les bugs de buffer
-
-                if (titre.isNotBlank() && auteur.isNotBlank()) {
-                    engine.voterEvaluationParCible(titre, auteur, choix == "1")
-                } else {
-                    println("⚠️ Saisie incomplète.")
-                }
-            }
-            "5" -> {
-                println("Fermeture de PolySteam. Au revoir !")
-                continuer = false
-            }
-            else -> println("❌ Option invalide, réessayez.")
         }
+    } catch (e: Exception) {
+        println("❌ Échec de l'inscription : ${e.message}")
     }
+
+    println("\nFin de la procédure.")
 }

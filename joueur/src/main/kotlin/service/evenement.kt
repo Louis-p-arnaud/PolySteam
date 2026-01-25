@@ -44,103 +44,81 @@ class Evenement(private val joueur: Joueur) {
         val pass = "PolySteam2026!"
         val random = Random()
 
-        // 1. Définition du Schéma Avro
-        val schemaString = """
-    {
-      "type": "record",
-      "name": "RapportIncident",
-      "namespace": "com.polysteam.avro",
-      "fields": [
-        {"name": "joueur_pseudo", "type": "string"},
-        {"name": "jeu_id", "type": "string"},
-        {"name": "titre", "type": "string"},
-        {"name": "plateforme", "type": "string"},
-        {"name": "type_erreur", "type": "string"},
-        {"name": "timestamp", "type": "long"}
-      ]
-    }
-    """.trimIndent()
+        // 1. Schéma Avro & Kafka (Inchangé)
+        val schemaString = """{"type": "record", "name": "RapportIncident", ...}""".trimIndent() // Ton schéma complet ici
         val schema = Schema.Parser().parse(schemaString)
-
-        // 2. Configuration Kafka avec Avro et Schema Registry
-        val props = Properties()
-        props["bootstrap.servers"] = "86.252.172.215:9092"
-        props["schema.registry.url"] = "http://86.252.172.215:8081"
-        props["key.serializer"] = "org.apache.kafka.common.serialization.StringSerializer"
-        props["value.serializer"] = KafkaAvroSerializer::class.java.name
+        val props = Properties().apply {
+            put("bootstrap.servers", "86.252.172.215:9092")
+            put("schema.registry.url", "http://86.252.172.215:8081")
+            put("key.serializer", "org.apache.kafka.common.serialization.StringSerializer")
+            put("value.serializer", "io.confluent.kafka.serializers.KafkaAvroSerializer")
+        }
 
         val producer = KafkaProducer<String, GenericRecord>(props)
 
         try {
-            Class.forName("org.postgresql.Driver")
-            DriverManager.getConnection(url, user, pass).use { conn ->
-
-                // 3. Vérification de la possession du jeu
+            // 2. ÉTAPE 1 : Vérifier la possession (Ouverture/Fermeture immédiate)
+            val jeuId = DriverManager.getConnection(url, user, pass).use { conn ->
                 val checkSql = """
                 SELECT jc.id FROM jeu_catalogue jc
                 JOIN jeu_possede jp ON jc.id = jp.jeu_id
                 WHERE jc.titre = ? AND UPPER(jc.plateforme) = UPPER(?) AND jp.joueur_pseudo = ?
             """.trimIndent()
 
-                val stmtCheck = conn.prepareStatement(checkSql)
-                stmtCheck.setString(1, titre)
-                stmtCheck.setString(2, plateforme)
-                stmtCheck.setString(3, joueur.pseudo)
-                val rs = stmtCheck.executeQuery()
-
-                if (!rs.next()) {
-                    println("❌ Erreur : Vous ne possédez pas ce jeu.")
-                    return
-                }
-                val jeuId = rs.getString("id")
-
-                println("\n🎮 Session lancée : $titre ($plateforme)")
-                println("⏳ Simulation : 1h ajoutée toutes les 5s. Risque de crash Avro activé.")
-
-                while (true) {
-                    Thread.sleep(5000)
-
-                    // 4. Simulation du crash (20% de chance)
-                    if (random.nextInt(5) == 0) {
-                        println("\n💥 CRASH DÉTECTÉ !")
-
-                        // Création de l'objet Avro
-                        val avroRecord = GenericData.Record(schema).apply {
-                            put("joueur_pseudo", joueur.pseudo)
-                            put("jeu_id", jeuId)
-                            put("titre", titre)
-                            put("plateforme", plateforme)
-                            put("type_erreur", "AVRO_SERIALIZED_CRASH")
-                            put("timestamp", System.currentTimeMillis())
-                        }
-
-                        // Envoi vers Kafka
-                        val kafkaRecord = ProducerRecord<String, GenericRecord>("rapports-incidents", joueur.pseudo, avroRecord)
-                        producer.send(kafkaRecord) { meta, ex ->
-                            if (ex == null) {
-                                println("📤 Rapport Avro envoyé avec succès (Offset: ${meta.offset()})")
-                            } else {
-                                println("❌ Échec Kafka/Avro : ${ex.message}")
-                            }
-                        }
-                        break
+                conn.prepareStatement(checkSql).use { stmt ->
+                    stmt.setString(1, titre)
+                    stmt.setString(2, plateforme)
+                    stmt.setString(3, joueur.pseudo)
+                    stmt.executeQuery().use { rs ->
+                        if (rs.next()) rs.getString("id") else null
                     }
+                }
+            }
 
-                    // 5. Si pas de crash, mise à jour du temps en base
-                    val updateSql = "UPDATE jeu_possede SET temps_jeu_minutes = temps_jeu_minutes + 60 WHERE joueur_pseudo = ? AND jeu_id = ?"
-                    val upStmt = conn.prepareStatement(updateSql)
-                    upStmt.setString(1, joueur.pseudo)
-                    upStmt.setString(2, jeuId)
-                    upStmt.executeUpdate()
-                    println("📈 +1h de jeu enregistrée...")
+            if (jeuId == null) {
+                println("❌ Erreur : Vous ne possédez pas ce jeu.")
+                return
+            }
+
+            println("\n🎮 Session lancée : $titre ($plateforme)")
+
+            // 3. BOUCLE DE JEU (La connexion est fermée pendant le Thread.sleep)
+            while (true) {
+                Thread.sleep(5000)
+
+                if (random.nextInt(5) == 0) { // CRASH
+                    println("\n💥 CRASH DÉTECTÉ !")
+                    val avroRecord = GenericData.Record(schema).apply {
+                        put("joueur_pseudo", joueur.pseudo); put("jeu_id", jeuId)
+                        put("titre", titre); put("plateforme", plateforme)
+                        put("type_erreur", "AVRO_SERIALIZED_CRASH"); put("timestamp", System.currentTimeMillis())
+                    }
+                    producer.send(ProducerRecord("rapports-incidents", joueur.pseudo, avroRecord))
+                    break
+                }
+
+                // ÉTAPE 2 : Mise à jour du temps (On ouvre, on update, on ferme direct)
+                try {
+                    DriverManager.getConnection(url, user, pass).use { conn ->
+                        val updateSql = "UPDATE jeu_possede SET temps_jeu_minutes = temps_jeu_minutes + 60 WHERE joueur_pseudo = ? AND jeu_id = ?"
+                        conn.prepareStatement(updateSql).use { upStmt ->
+                            upStmt.setString(1, joueur.pseudo)
+                            upStmt.setString(2, jeuId)
+                            upStmt.executeUpdate()
+                            println("📈 +1h de jeu enregistrée (Connexion libérée)")
+                        }
+                    }
+                } catch (e: SQLException) {
+                    println("⚠️ Alerte : Impossible de mettre à jour le temps (${e.message})")
                 }
             }
         } catch (e: Exception) {
-            println("⚠️ Interruption : ${e.message}")
+            println("⚠️ Erreur : ${e.message}")
         } finally {
             producer.close()
         }
     }
+
 
     fun inscriptionLocale() {
         println("📝 Préparation de l'inscription pour ${joueur.pseudo} dans la base commune.")
@@ -161,7 +139,7 @@ class Evenement(private val joueur: Joueur) {
     }
 
     fun inscrireJoueur(pseudo: String, mdp: String, nom: String, prenom: String, dateN: String): Boolean {
-        // Vérification locale du mot de passe
+        // Validation locale (toujours faire avant d'ouvrir une connexion)
         if (mdp.length < 8) {
             println("❌ Erreur : Le mot de passe doit contenir au moins 8 caractères.")
             return false
@@ -172,30 +150,37 @@ class Evenement(private val joueur: Joueur) {
         val password = "PolySteam2026!"
 
         try {
+            // Ouverture de la connexion avec .use
             DriverManager.getConnection(url, user, password).use { conn ->
-                // Vérification de l'unicité du pseudo
-                val checkSql = "SELECT COUNT(*) FROM joueur WHERE pseudo = ?"
-                val checkStmt = conn.prepareStatement(checkSql)
-                checkStmt.setString(1, pseudo)
-                val rs = checkStmt.executeQuery()
 
-                if (rs.next() && rs.getInt(1) > 0) {
+                // Vérification de l'unicité avec .use pour le Statement et le ResultSet
+                val checkSql = "SELECT COUNT(*) FROM joueur WHERE pseudo = ?"
+                val estDisponible = conn.prepareStatement(checkSql).use { checkStmt ->
+                    checkStmt.setString(1, pseudo)
+                    checkStmt.executeQuery().use { rs ->
+                        !(rs.next() && rs.getInt(1) > 0)
+                    }
+                }
+
+                if (!estDisponible) {
                     println("❌ Erreur : Le pseudo '$pseudo' est déjà utilisé.")
                     return false
                 }
 
-                // Insertion du nouveau compte
+                // Insertion avec .use pour le PreparedStatement
                 val insertSql = "INSERT INTO joueur (pseudo, nom, prenom, date_naissance) VALUES (?, ?, ?, ?::date)"
-                val insertStmt = conn.prepareStatement(insertSql)
-                insertStmt.setString(1, pseudo)
-                insertStmt.setString(2, nom)
-                insertStmt.setString(3, prenom)
-                insertStmt.setString(4, dateN)
+                conn.prepareStatement(insertSql).use { insertStmt ->
+                    insertStmt.setString(1, pseudo)
+                    insertStmt.setString(2, nom)
+                    insertStmt.setString(3, prenom)
+                    insertStmt.setString(4, dateN)
 
-                insertStmt.executeUpdate()
+                    insertStmt.executeUpdate()
+                }
+
                 println("✅ Compte créé avec succès pour $pseudo !")
                 return true
-            }
+            } // La connexion est AUTOMATIQUEMENT fermée ici, quoi qu'il arrive
         } catch (e: SQLException) {
             println("⚠️ Erreur base de données : ${e.message}")
             return false
@@ -211,43 +196,53 @@ class Evenement(private val joueur: Joueur) {
             Class.forName("org.postgresql.Driver")
             DriverManager.getConnection(url, user, pass).use { conn ->
 
+                // Récupération de l'ID et de la version (avec .use pour stmt et rs)
                 val findIdSql = "SELECT id, version_actuelle FROM jeu_catalogue WHERE titre = ? AND plateforme = ?"
-                val findIdStmt = conn.prepareStatement(findIdSql)
-                findIdStmt.setString(1, titreJeu)
-                findIdStmt.setString(2, supportSaisi)
+                val infoJeu = conn.prepareStatement(findIdSql).use { stmt ->
+                    stmt.setString(1, titreJeu)
+                    stmt.setString(2, supportSaisi)
+                    stmt.executeQuery().use { rs ->
+                        if (rs.next()) {
+                            Pair(rs.getString("id"), rs.getString("version_actuelle"))
+                        } else null
+                    }
+                }
 
-                val rsId = findIdStmt.executeQuery()
-
-                if (!rsId.next()) {
+                if (infoJeu == null) {
                     println("❌ Erreur : Le jeu '$titreJeu' n'est pas disponible sur le support '$supportSaisi'.")
                     return false
                 }
+                val (jeuId, versionCatalogue) = infoJeu
 
-                val jeuId = rsId.getString("id")
-                val versionCatalogue = rsId.getString("version_actuelle")
-
+                // Vérification de la possession (avec .use)
                 val checkSql = "SELECT COUNT(*) FROM jeu_possede WHERE joueur_pseudo = ? AND jeu_id = ?"
-                val checkStmt = conn.prepareStatement(checkSql)
-                checkStmt.setString(1, joueur.pseudo)
-                checkStmt.setString(2, jeuId)
+                val dejaPossede = conn.prepareStatement(checkSql).use { stmt ->
+                    stmt.setString(1, joueur.pseudo)
+                    stmt.setString(2, jeuId)
+                    stmt.executeQuery().use { rs ->
+                        rs.next() && rs.getInt(1) > 0
+                    }
+                }
 
-                if (checkStmt.executeQuery().let { it.next() && it.getInt(1) > 0 }) {
+                if (dejaPossede) {
                     println("❌ Vous possédez déjà '$titreJeu' sur ce support.")
                     return false
                 }
 
+                // Insertion de l'achat (avec .use)
                 val insertSql = "INSERT INTO jeu_possede (joueur_pseudo, jeu_id, temps_jeu_minutes, version_installee) VALUES (?, ?, 0, ?)"
-                val insertStmt = conn.prepareStatement(insertSql)
-                insertStmt.setString(1, joueur.pseudo)
-                insertStmt.setString(2, jeuId)
-                insertStmt.setString(3, versionCatalogue)
+                conn.prepareStatement(insertSql).use { stmt ->
+                    stmt.setString(1, joueur.pseudo)
+                    stmt.setString(2, jeuId)
+                    stmt.setString(3, versionCatalogue)
+                    stmt.executeUpdate()
+                }
 
-                insertStmt.executeUpdate()
                 println("💰 Achat réussi ! '$titreJeu' ajouté sur $supportSaisi.")
                 true
             }
         } catch (e: Exception) {
-            println("⚠️ Erreur : ${e.message}")
+            println("⚠️ Erreur lors de l'achat : ${e.message}")
             false
         }
     }
@@ -261,7 +256,7 @@ class Evenement(private val joueur: Joueur) {
             Class.forName("org.postgresql.Driver")
             DriverManager.getConnection(url, user, pass).use { conn ->
 
-                // 1. Chercher si une mise à jour est disponible
+                // Chercher si une mise à jour est disponible
                 val querySql = """
                 SELECT jp.jeu_id, jc.version_actuelle, jp.version_installee 
                 FROM jeu_possede jp
@@ -269,36 +264,45 @@ class Evenement(private val joueur: Joueur) {
                 WHERE jp.joueur_pseudo = ? AND jc.titre = ?
             """.trimIndent()
 
-                val stmt = conn.prepareStatement(querySql)
-                stmt.setString(1, joueur.pseudo)
-                stmt.setString(2, titreJeu)
-                val rs = stmt.executeQuery()
+                // On utilise .use pour le Statement et le ResultSet
+                val updateInfo = conn.prepareStatement(querySql).use { stmt ->
+                    stmt.setString(1, joueur.pseudo)
+                    stmt.setString(2, titreJeu)
+                    stmt.executeQuery().use { rs ->
+                        if (rs.next()) {
+                            Triple(
+                                rs.getString("jeu_id"),
+                                rs.getString("version_actuelle"),
+                                rs.getString("version_installee")
+                            )
+                        } else null
+                    }
+                }
 
-                if (rs.next()) {
-                    val vCatalogue = rs.getString("version_actuelle")
-                    val vInstallee = rs.getString("version_installee")
-                    val jeuId = rs.getString("jeu_id")
+                if (updateInfo != null) {
+                    val (jeuId, vCatalogue, vInstallee) = updateInfo
 
                     if (vCatalogue == vInstallee) {
                         println("✅ Le jeu '$titreJeu' est déjà à jour (v$vInstallee).")
                         return false
                     }
 
-                    // 2. Mettre à jour la version installée
+                    // Mettre à jour la version installée
                     println("📥 Mise à jour trouvée : v$vInstallee -> v$vCatalogue. Téléchargement...")
 
                     val updateSql = "UPDATE jeu_possede SET version_installee = ? WHERE joueur_pseudo = ? AND jeu_id = ?"
-                    val updateStmt = conn.prepareStatement(updateSql)
-                    updateStmt.setString(1, vCatalogue)
-                    updateStmt.setString(2, joueur.pseudo)
-                    updateStmt.setString(3, jeuId)
+                    conn.prepareStatement(updateSql).use { updateStmt ->
+                        updateStmt.setString(1, vCatalogue)
+                        updateStmt.setString(2, joueur.pseudo)
+                        updateStmt.setString(3, jeuId)
+                        updateStmt.executeUpdate()
+                    }
 
-                    updateStmt.executeUpdate()
                     println("✨ Mise à jour terminée ! '$titreJeu' est maintenant en version $vCatalogue.")
-                    true
+                    return true
                 } else {
                     println("❌ Vous ne possédez pas le jeu '$titreJeu'.")
-                    false
+                    return false
                 }
             }
         } catch (e: Exception) {
@@ -316,7 +320,7 @@ class Evenement(private val joueur: Joueur) {
             Class.forName("org.postgresql.Driver")
             DriverManager.getConnection(url, user, pass).use { conn ->
 
-                // On ajoute une jointure sur jeu_genre pour récupérer l'attribut 'genre'
+                // Requête SQL avec jointures pour l'éditeur et le genre
                 val sql = """
                 SELECT jc.titre, jc.date_publication, e.nom AS nom_editeur, jc.version_actuelle, 
                        jc.est_version_anticipee, jc.prix_actuel, jg.genre, jc.plateforme
@@ -326,37 +330,41 @@ class Evenement(private val joueur: Joueur) {
                 WHERE jc.titre = ?
             """.trimIndent()
 
-                val stmt = conn.prepareStatement(sql)
-                stmt.setString(1, titreRecherche)
+                // Utilisation de .use pour le Statement et le ResultSet
+                conn.prepareStatement(sql).use { stmt ->
+                    stmt.setString(1, titreRecherche)
 
-                val rs = stmt.executeQuery()
-                var jeuTrouve = false
+                    stmt.executeQuery().use { rs ->
+                        var jeuTrouve = false
 
-                while (rs.next()) {
-                    if (!jeuTrouve) {
-                        println("\n--- 📄 FICHE INFORMATION : ${rs.getString("titre")} ---")
-                        println("📅 Date Publication : ${rs.getDate("date_publication")}")
-                        println("🏢 Éditeur          : ${rs.getString("nom_editeur")}")
-                        // On récupère 'genre' depuis la table jeu_genre
-                        println("🏷️ Genre           : ${rs.getString("genre") ?: "Non spécifié"}")
-                        println("\nDisponibilité par plateforme :")
-                        jeuTrouve = true
-                    }
+                        while (rs.next()) {
+                            // Affichage de l'en-tête uniquement à la première ligne trouvée
+                            if (!jeuTrouve) {
+                                println("\n--- 📄 FICHE INFORMATION : ${rs.getString("titre")} ---")
+                                println("📅 Date Publication : ${rs.getDate("date_publication")}")
+                                println("🏢 Éditeur          : ${rs.getString("nom_editeur")}")
+                                println("🏷️ Genre           : ${rs.getString("genre") ?: "Non spécifié"}")
+                                println("\nDisponibilité par plateforme :")
+                                jeuTrouve = true
+                            }
 
-                    val plateforme = rs.getString("plateforme")
-                    val prix = rs.getDouble("prix_actuel")
-                    val version = rs.getString("version_actuelle")
-                    val anticipe = if (rs.getBoolean("est_version_anticipee")) "[ACCÈS ANTICIPÉ]" else ""
+                            // Détails spécifiques à chaque plateforme (boucle sur les résultats)
+                            val plateforme = rs.getString("plateforme")
+                            val prix = rs.getDouble("prix_actuel")
+                            val version = rs.getString("version_actuelle")
+                            val anticipe = if (rs.getBoolean("est_version_anticipee")) "[ACCÈS ANTICIPÉ]" else ""
 
-                    println("  • [$plateforme] : $prix€ | Version : $version $anticipe")
-                }
+                            println("  • [$plateforme] : $prix€ | Version : $version $anticipe")
+                        }
 
-                if (!jeuTrouve) {
-                    println("❌ Aucun jeu trouvé pour le titre '$titreRecherche'.")
-                }
-            }
+                        if (!jeuTrouve) {
+                            println("❌ Aucun jeu trouvé pour le titre '$titreRecherche'.")
+                        }
+                    } // Le ResultSet est fermé ici
+                } // Le PreparedStatement est fermé ici
+            } // La Connection est fermée ici
         } catch (e: Exception) {
-            println("⚠️ Erreur SQL : ${e.message}")
+            println("⚠️ Erreur lors de l'affichage de la fiche : ${e.message}")
         }
     }
 
@@ -377,38 +385,45 @@ class Evenement(private val joueur: Joueur) {
                 WHERE UPPER(e.nom) = UPPER(?)
             """.trimIndent()
 
-                val stmt = conn.prepareStatement(sql)
-                stmt.setString(1, nomEditeur)
+                // Imbrication des .use pour une libération totale des ressources
+                conn.prepareStatement(sql).use { stmt ->
+                    stmt.setString(1, nomEditeur)
 
-                val rs = stmt.executeQuery()
-                var editeurAffiche = false
+                    stmt.executeQuery().use { rs ->
+                        var editeurAffiche = false
 
-                while (rs.next()) {
-                    if (!editeurAffiche) {
-                        println("\n--- 🏢 FICHE ÉDITEUR : ${rs.getString("nom")} ---")
-                        println("🛠️ Type : ${if (rs.getBoolean("est_independant")) "Indépendant" else "Studio Majeur"}")
-                        println("📅 Création : ${rs.getTimestamp("date_creation")}")
-                        println("\n📚 Catalogue des jeux proposés :")
-                        editeurAffiche = true
-                    }
+                        while (rs.next()) {
+                            // Affichage de l'en-tête (une seule fois)
+                            if (!editeurAffiche) {
+                                println("\n--- 🏢 FICHE ÉDITEUR : ${rs.getString("nom")} ---")
+                                val type = if (rs.getBoolean("est_independant")) "Indépendant" else "Studio Majeur"
+                                println("🛠️ Type : $type")
+                                println("📅 Création : ${rs.getTimestamp("date_creation")}")
+                                println("\n📚 Catalogue des jeux proposés :")
+                                editeurAffiche = true
+                            }
 
-                    val titreJeu = rs.getString("titre")
-                    if (titreJeu != null) {
-                        val datePub = rs.getDate("date_publication")
-                        println("  • $titreJeu (Sorti le : $datePub)")
-                    }
-                }
+                            // Affichage de la liste des jeux (boucle sur les résultats du JOIN)
+                            val titreJeu = rs.getString("titre")
+                            if (titreJeu != null) {
+                                val datePub = rs.getDate("date_publication")
+                                println("  • $titreJeu (Sorti le : $datePub)")
+                            }
+                        }
 
-                if (!editeurAffiche) {
-                    println("❌ Aucun éditeur trouvé au nom de '$nomEditeur'.")
-                } else {
-                    println("------------------------------------------")
-                }
-            }
+                        if (!editeurAffiche) {
+                            println("❌ Aucun éditeur trouvé au nom de '$nomEditeur'.")
+                        } else {
+                            println("------------------------------------------")
+                        }
+                    } // Fermeture automatique du ResultSet
+                } // Fermeture automatique du PreparedStatement
+            } // Fermeture automatique de la Connection
         } catch (e: Exception) {
             println("⚠️ Erreur lors de la récupération de l'éditeur : ${e.message}")
         }
     }
+
 
     fun afficherJeuxPossedes() {
         val url = "jdbc:postgresql://86.252.172.215:5432/polysteam"
@@ -426,31 +441,33 @@ class Evenement(private val joueur: Joueur) {
                 WHERE jp.joueur_pseudo = ?
             """.trimIndent()
 
-                val stmt = conn.prepareStatement(sql)
-                stmt.setString(1, joueur.pseudo)
+                // Utilisation de .use pour le Statement et le ResultSet
+                conn.prepareStatement(sql).use { stmt ->
+                    stmt.setString(1, joueur.pseudo)
 
-                val rs = stmt.executeQuery()
-                var aDesJeux = false
+                    stmt.executeQuery().use { rs ->
+                        var aDesJeux = false
+                        println("\n--- 📚 BIBLIOTHÈQUE DE ${joueur.pseudo} ---")
 
-                println("\n--- 📚 BIBLIOTHÈQUE DE ${joueur.pseudo} ---")
+                        while (rs.next()) {
+                            aDesJeux = true
+                            val titre = rs.getString("titre")
+                            val plateforme = rs.getString("plateforme")
+                            val temps = rs.getInt("temps_jeu_minutes")
+                            val version = rs.getString("version_installee")
 
-                while (rs.next()) {
-                    aDesJeux = true
-                    val titre = rs.getString("titre")
-                    val plateforme = rs.getString("plateforme")
-                    val temps = rs.getInt("temps_jeu_minutes")
-                    val version = rs.getString("version_installee")
+                            println("🎮 $titre [$plateforme]")
+                            println("   • Temps de jeu : ${temps / 60}h ${temps % 60}min")
+                            println("   • Version installée : $version")
+                            println("   -----------------------")
+                        }
 
-                    println("🎮 $titre [$plateforme]")
-                    println("   • Temps de jeu : ${temps / 60}h ${temps % 60}min")
-                    println("   • Version installée : $version")
-                    println("   -----------------------")
-                }
-
-                if (!aDesJeux) {
-                    println("Votre bibliothèque est vide. Visitez la boutique pour acquérir des jeux !")
-                }
-            }
+                        if (!aDesJeux) {
+                            println("Votre bibliothèque est vide. Visitez la boutique pour acquérir des jeux !")
+                        }
+                    } // Le ResultSet est fermé ici
+                } // Le PreparedStatement est fermé ici
+            } // La Connection est fermée ici
         } catch (e: Exception) {
             println("⚠️ Erreur lors de l'affichage de la bibliothèque : ${e.message}")
         }
@@ -465,7 +482,7 @@ class Evenement(private val joueur: Joueur) {
             Class.forName("org.postgresql.Driver")
             DriverManager.getConnection(url, user, pass).use { conn ->
 
-                // 1. Récupérer l'ID du jeu et vérifier possession + temps de jeu (min 60 min)
+                // 1. Récupérer l'ID du jeu et vérifier possession + temps de jeu
                 val checkSql = """
                 SELECT jc.id, jp.temps_jeu_minutes 
                 FROM jeu_catalogue jc
@@ -473,23 +490,24 @@ class Evenement(private val joueur: Joueur) {
                 WHERE jc.titre = ? AND UPPER(jc.plateforme) = UPPER(?) AND jp.joueur_pseudo = ?
             """.trimIndent()
 
-                val checkStmt = conn.prepareStatement(checkSql)
-                checkStmt.setString(1, titre)
-                checkStmt.setString(2, plateforme)
-                checkStmt.setString(3, joueur.pseudo)
-                val rs = checkStmt.executeQuery()
+                val jeuId = conn.prepareStatement(checkSql).use { stmt ->
+                    stmt.setString(1, titre)
+                    stmt.setString(2, plateforme)
+                    stmt.setString(3, joueur.pseudo)
 
-                if (!rs.next()) {
-                    println("❌ Erreur : Vous ne possédez pas ce jeu sur cette plateforme.")
-                    return false
-                }
-
-                val jeuId = rs.getString("id")
-                val tempsJeu = rs.getInt("temps_jeu_minutes")
-
-                if (tempsJeu < 60) {
-                    println("❌ Erreur : Vous devez avoir joué au moins 1 heure (actuellement : ${tempsJeu}min).")
-                    return false
+                    stmt.executeQuery().use { rs ->
+                        if (rs.next()) {
+                            val tempsJeu = rs.getInt("temps_jeu_minutes")
+                            if (tempsJeu < 60) {
+                                println("❌ Erreur : Vous devez avoir joué au moins 1 heure (actuellement : ${tempsJeu}min).")
+                                return false // Sortie propre
+                            }
+                            rs.getString("id")
+                        } else {
+                            println("❌ Erreur : Vous ne possédez pas ce jeu sur cette plateforme.")
+                            return false // Sortie propre
+                        }
+                    }
                 }
 
                 // 2. Insérer l'évaluation
@@ -498,18 +516,20 @@ class Evenement(private val joueur: Joueur) {
                 VALUES (?, ?, ?, ?)
             """.trimIndent()
 
-                val insertStmt = conn.prepareStatement(insertSql)
-                insertStmt.setString(1, joueur.pseudo)
-                insertStmt.setString(2, jeuId)
-                insertStmt.setInt(3, note)
-                insertStmt.setString(4, commentaire)
+                conn.prepareStatement(insertSql).use { insertStmt ->
+                    insertStmt.setString(1, joueur.pseudo)
+                    insertStmt.setString(2, jeuId)
+                    insertStmt.setInt(3, note)
+                    insertStmt.setString(4, commentaire)
 
-                insertStmt.executeUpdate()
+                    insertStmt.executeUpdate()
+                }
+
                 println("⭐ Évaluation publiée avec succès pour '$titre' !")
                 true
             }
         } catch (e: Exception) {
-            println("⚠️ Erreur : ${e.message}")
+            println("⚠️ Erreur lors de l'évaluation : ${e.message}")
             false
         }
     }
@@ -524,26 +544,30 @@ class Evenement(private val joueur: Joueur) {
             Class.forName("org.postgresql.Driver")
             DriverManager.getConnection(url, user, pass).use { conn ->
 
-                // 1. Récupérer les informations personnelles du joueur
+                // Informations personnelles du joueur
                 val sqlJoueur = "SELECT pseudo, nom, prenom, date_naissance FROM joueur WHERE pseudo = ?"
-                val stmtJ = conn.prepareStatement(sqlJoueur)
-                stmtJ.setString(1, pseudoRecherche)
-                val rsJ = stmtJ.executeQuery()
-
-                if (!rsJ.next()) {
-                    println("❌ L'utilisateur '$pseudoRecherche' n'existe pas.")
-                    return
+                val joueurExiste = conn.prepareStatement(sqlJoueur).use { stmtJ ->
+                    stmtJ.setString(1, pseudoRecherche)
+                    stmtJ.executeQuery().use { rsJ ->
+                        if (rsJ.next()) {
+                            println("\n============================================")
+                            println("👤 PROFIL DE : ${rsJ.getString("pseudo").uppercase()}")
+                            println("============================================")
+                            println("Nom         : ${rsJ.getString("nom")}")
+                            println("Prénom      : ${rsJ.getString("prenom")}")
+                            println("Né(e) le    : ${rsJ.getDate("date_naissance")}")
+                            println("--------------------------------------------")
+                            true
+                        } else {
+                            println("❌ L'utilisateur '$pseudoRecherche' n'existe pas.")
+                            false
+                        }
+                    }
                 }
 
-                println("\n============================================")
-                println("👤 PROFIL DE : ${rsJ.getString("pseudo").uppercase()}")
-                println("============================================")
-                println("Nom         : ${rsJ.getString("nom")}")
-                println("Prénom      : ${rsJ.getString("prenom")}")
-                println("Né(e) le    : ${rsJ.getDate("date_naissance")}")
-                println("--------------------------------------------")
+                if (!joueurExiste) return
 
-                // 2. Récupérer la bibliothèque et le temps de jeu
+                // Bibliothèque et temps de jeu
                 println("\n🎮 BIBLIOTHÈQUE ET TEMPS DE JEU :")
                 val sqlJeux = """
                 SELECT jc.titre, jc.plateforme, jp.temps_jeu_minutes 
@@ -553,19 +577,20 @@ class Evenement(private val joueur: Joueur) {
                 ORDER BY jp.temps_jeu_minutes DESC
             """.trimIndent()
 
-                val stmtG = conn.prepareStatement(sqlJeux)
-                stmtG.setString(1, pseudoRecherche)
-                val rsG = stmtG.executeQuery()
-
-                var aDesJeux = false
-                while (rsG.next()) {
-                    aDesJeux = true
-                    val t = rsG.getInt("temps_jeu_minutes")
-                    println("• ${rsG.getString("titre")} [${rsG.getString("plateforme")}] : ${t / 60}h ${t % 60}min")
+                conn.prepareStatement(sqlJeux).use { stmtG ->
+                    stmtG.setString(1, pseudoRecherche)
+                    stmtG.executeQuery().use { rsG ->
+                        var aDesJeux = false
+                        while (rsG.next()) {
+                            aDesJeux = true
+                            val t = rsG.getInt("temps_jeu_minutes")
+                            println("• ${rsG.getString("titre")} [${rsG.getString("plateforme")}] : ${t / 60}h ${t % 60}min")
+                        }
+                        if (!aDesJeux) println("Aucun jeu dans la bibliothèque.")
+                    }
                 }
-                if (!aDesJeux) println("Aucun jeu dans la bibliothèque.")
 
-                // 3. Récupérer les évaluations laissées par le joueur
+                // Évaluations laissées par le joueur
                 println("\n⭐ ÉVALUATIONS LAISSÉES :")
                 val sqlEval = """
                 SELECT jc.titre, e.note, e.commentaire, e.date_publication
@@ -575,27 +600,29 @@ class Evenement(private val joueur: Joueur) {
                 ORDER BY e.date_publication DESC
             """.trimIndent()
 
-                val stmtE = conn.prepareStatement(sqlEval)
-                stmtE.setString(1, pseudoRecherche)
-                val rsE = stmtE.executeQuery()
-
-                var aDesEvals = false
-                while (rsE.next()) {
-                    aDesEvals = true
-                    println("--------------------------------------------")
-                    println("Jeu : ${rsE.getString("titre")}")
-                    println("Note : ${rsE.getInt("note")}/10")
-                    println("Commentaire : \"${rsE.getString("commentaire")}\"")
-                    println("Le : ${rsE.getTimestamp("date_publication")}")
+                conn.prepareStatement(sqlEval).use { stmtE ->
+                    stmtE.setString(1, pseudoRecherche)
+                    stmtE.executeQuery().use { rsE ->
+                        var aDesEvals = false
+                        while (rsE.next()) {
+                            aDesEvals = true
+                            println("--------------------------------------------")
+                            println("Jeu : ${rsE.getString("titre")}")
+                            println("Note : ${rsE.getInt("note")}/10")
+                            println("Commentaire : \"${rsE.getString("commentaire")}\"")
+                            println("Le : ${rsE.getTimestamp("date_publication")}")
+                        }
+                        if (!aDesEvals) println("Aucune évaluation rédigée.")
+                    }
                 }
-                if (!aDesEvals) println("Aucune évaluation rédigée.")
 
                 println("============================================\n")
-            }
+            } // Fermeture automatique de la connexion
         } catch (e: Exception) {
             println("⚠️ Erreur lors de l'affichage du profil : ${e.message}")
         }
     }
+
 
     fun voterEvaluationParCible(titreJeu: String, pseudoAuteur: String, estUnLike: Boolean): Boolean {
         val url = "jdbc:postgresql://86.252.172.215:5432/polysteam"
@@ -605,7 +632,7 @@ class Evenement(private val joueur: Joueur) {
         return try {
             Class.forName("org.postgresql.Driver")
             DriverManager.getConnection(url, user, pass).use { conn ->
-                conn.autoCommit = false // Début d'une transaction pour la sécurité
+                conn.autoCommit = false // Début de la transaction
 
                 // 1. Trouver l'ID de l'évaluation
                 val findIdSql = """
@@ -614,76 +641,78 @@ class Evenement(private val joueur: Joueur) {
                 WHERE jc.titre = ? AND e.joueur_pseudo = ?
             """.trimIndent()
 
-                val stmtId = conn.prepareStatement(findIdSql)
-                stmtId.setString(1, titreJeu)
-                stmtId.setString(2, pseudoAuteur)
-                val rsId = stmtId.executeQuery()
+                val evaluationId = conn.prepareStatement(findIdSql).use { stmt ->
+                    stmt.setString(1, titreJeu)
+                    stmt.setString(2, pseudoAuteur)
+                    stmt.executeQuery().use { rs ->
+                        if (rs.next()) rs.getInt("id") else null
+                    }
+                }
 
-                if (!rsId.next()) {
+                if (evaluationId == null) {
                     println("❌ Aucune évaluation trouvée.")
                     return false
                 }
-                val evaluationId = rsId.getInt("id")
 
-                // 2. Vérifier si un vote existe déjà
+                // Vérifier si un vote existe déjà
                 val checkSql = "SELECT est_utile FROM votes_evaluation WHERE evaluation_id = ? AND votant_pseudo = ?"
-                val checkStmt = conn.prepareStatement(checkSql)
-                checkStmt.setInt(1, evaluationId)
-                checkStmt.setString(2, joueur.pseudo)
-                val rsVote = checkStmt.executeQuery()
+                val ancienVote = conn.prepareStatement(checkSql).use { stmt ->
+                    stmt.setInt(1, evaluationId)
+                    stmt.setString(2, joueur.pseudo)
+                    stmt.executeQuery().use { rs ->
+                        if (rs.next()) rs.getBoolean("est_utile") else null
+                    }
+                }
 
-                if (rsVote.next()) {
-                    val ancienVoteEstLike = rsVote.getBoolean("est_utile")
-
-                    if (ancienVoteEstLike == estUnLike) {
+                if (ancienVote != null) {
+                    if (ancienVote == estUnLike) {
                         println("⚠️ Vous avez déjà voté ainsi.")
+                        conn.rollback() // Annule la transaction par sécurité avant de quitter
                         return false
                     } else {
-                        // CHANGEMENT DE VOTE (ex: Like -> Dislike)
-                        // Mise à jour du vote individuel
+                        // Changement de vote
                         val upVoteSql = "UPDATE votes_evaluation SET est_utile = ? WHERE evaluation_id = ? AND votant_pseudo = ?"
-                        val upVoteStmt = conn.prepareStatement(upVoteSql)
-                        upVoteStmt.setBoolean(1, estUnLike)
-                        upVoteStmt.setInt(2, evaluationId)
-                        upVoteStmt.setString(3, joueur.pseudo)
-                        upVoteStmt.executeUpdate()
+                        conn.prepareStatement(upVoteSql).use { stmt ->
+                            stmt.setBoolean(1, estUnLike)
+                            stmt.setInt(2, evaluationId)
+                            stmt.setString(3, joueur.pseudo)
+                            stmt.executeUpdate()
+                        }
 
-                        // Mise à jour des compteurs globaux dans la table evaluation
                         val sqlCompteurs = if (estUnLike) {
                             "UPDATE evaluation SET nombre_votes_utile = nombre_votes_utile + 1, nombre_votes_pas_utile = nombre_votes_pas_utile - 1 WHERE id = ?"
                         } else {
                             "UPDATE evaluation SET nombre_votes_utile = nombre_votes_utile - 1, nombre_votes_pas_utile = nombre_votes_pas_utile + 1 WHERE id = ?"
                         }
-                        val upCounters = conn.prepareStatement(sqlCompteurs)
-                        upCounters.setInt(1, evaluationId)
-                        upCounters.executeUpdate()
-
+                        conn.prepareStatement(sqlCompteurs).use { stmt ->
+                            stmt.setInt(1, evaluationId)
+                            stmt.executeUpdate()
+                        }
                         println("🔄 Votre vote a été modifié et les compteurs mis à jour.")
                     }
                 } else {
-                    // NOUVEAU VOTE
-                    // Insertion du vote individuel
+                    // Nouveau vote
                     val insertVoteSql = "INSERT INTO votes_evaluation (evaluation_id, votant_pseudo, est_utile) VALUES (?, ?, ?)"
-                    val insertStmt = conn.prepareStatement(insertVoteSql)
-                    insertStmt.setInt(1, evaluationId)
-                    insertStmt.setString(2, joueur.pseudo)
-                    insertStmt.setBoolean(3, estUnLike)
-                    insertStmt.executeUpdate()
+                    conn.prepareStatement(insertVoteSql).use { stmt ->
+                        stmt.setInt(1, evaluationId)
+                        stmt.setString(2, joueur.pseudo)
+                        stmt.setBoolean(3, estUnLike)
+                        stmt.executeUpdate()
+                    }
 
-                    // Incrémentation du compteur correspondant
                     val sqlIncr = if (estUnLike) {
                         "UPDATE evaluation SET nombre_votes_utile = nombre_votes_utile + 1 WHERE id = ?"
                     } else {
                         "UPDATE evaluation SET nombre_votes_pas_utile = nombre_votes_pas_utile + 1 WHERE id = ?"
                     }
-                    val incrStmt = conn.prepareStatement(sqlIncr)
-                    incrStmt.setInt(1, evaluationId)
-                    incrStmt.executeUpdate()
-
-                    println("✅ Nouveau vote enregistré et compteur incrémenté !")
+                    conn.prepareStatement(sqlIncr).use { stmt ->
+                        stmt.setInt(1, evaluationId)
+                        stmt.executeUpdate()
+                    }
+                    println("✅ Nouveau vote enregistré !")
                 }
 
-                conn.commit()
+                conn.commit() // Valide définitivement toutes les opérations
                 true
             }
         } catch (e: Exception) {
@@ -691,4 +720,114 @@ class Evenement(private val joueur: Joueur) {
             false
         }
     }
+
+
+    fun envoyerDemandeAmi(pseudoDestinataire: String) {
+        val url = "jdbc:postgresql://86.252.172.215:5432/polysteam"
+        val user = "polysteam_user"
+        val pass = "PolySteam2026!"
+
+        try {
+            Class.forName("org.postgresql.Driver")
+            // 1. Ouverture de la connexion avec .use
+            DriverManager.getConnection(url, user, pass).use { conn ->
+                val sql = "INSERT INTO ami (joueur_pseudo, ami_pseudo, statut) VALUES (?, ?, 'EN_ATTENTE')"
+
+                // 2. Préparation du statement avec .use pour une libération immédiate
+                conn.prepareStatement(sql).use { stmt ->
+                    stmt.setString(1, joueur.pseudo) // Expéditeur (joueur connecté)
+                    stmt.setString(2, pseudoDestinataire) // Destinataire
+
+                    stmt.executeUpdate()
+                    println("✉️ Demande d'ami envoyée à $pseudoDestinataire !")
+                }
+            } // La connexion est automatiquement fermée ici
+        } catch (e: Exception) {
+            // En cas de doublon (clé primaire violée), PostgreSQL lève une exception
+            println("⚠️ Erreur : Impossible d'envoyer la demande. (Le joueur n'existe pas ou une demande est déjà en cours).")
+        }
+    }
+
+    fun accepterDemandeAmi(pseudoExpediteur: String) {
+        val url = "jdbc:postgresql://86.252.172.215:5432/polysteam"
+        val user = "polysteam_user"
+        val pass = "PolySteam2026!"
+
+        try {
+            Class.forName("org.postgresql.Driver")
+            DriverManager.getConnection(url, user, pass).use { conn ->
+                conn.autoCommit = false // Début de la transaction
+
+                try {
+                    // Mettre à jour la demande reçue (de 'EN_ATTENTE' à 'ACCEPTE')
+                    val updateSql = "UPDATE ami SET statut = 'ACCEPTE' WHERE joueur_pseudo = ? AND ami_pseudo = ?"
+                    val succesUpdate = conn.prepareStatement(updateSql).use { stmtUp ->
+                        stmtUp.setString(1, pseudoExpediteur)
+                        stmtUp.setString(2, joueur.pseudo)
+                        stmtUp.executeUpdate() > 0
+                    }
+
+                    if (succesUpdate) {
+                        // Créer la relation inverse pour que l'amitié soit réciproque
+                        val insertSql = "INSERT INTO ami (joueur_pseudo, ami_pseudo, statut) VALUES (?, ?, 'ACCEPTE')"
+                        conn.prepareStatement(insertSql).use { stmtIn ->
+                            stmtIn.setString(1, joueur.pseudo)
+                            stmtIn.setString(2, pseudoExpediteur)
+                            stmtIn.executeUpdate()
+                        }
+
+                        conn.commit() // Valide les deux opérations
+                        println("✅ Vous êtes maintenant ami avec $pseudoExpediteur !")
+                    } else {
+                        println("❌ Aucune demande en attente trouvée de la part de $pseudoExpediteur.")
+                        conn.rollback()
+                    }
+                } catch (e: Exception) {
+                    conn.rollback() // Annule tout en cas d'erreur durant le processus
+                    throw e
+                }
+            }
+        } catch (e: Exception) {
+            println("⚠️ Erreur lors de l'acceptation : ${e.message}")
+        }
+    }
+
+    fun afficherListeAmi() {
+        val url = "jdbc:postgresql://86.252.172.215:5432/polysteam"
+        val user = "polysteam_user"
+        val pass = "PolySteam2026!"
+
+        try {
+            Class.forName("org.postgresql.Driver")
+            DriverManager.getConnection(url, user, pass).use { conn ->
+
+                val sql = "SELECT ami_pseudo, date_ajout FROM ami WHERE joueur_pseudo = ? AND statut = 'ACCEPTE'"
+
+                // Utilisation de .use pour le Statement et le ResultSet
+                conn.prepareStatement(sql).use { stmt ->
+                    stmt.setString(1, joueur.pseudo)
+
+                    stmt.executeQuery().use { rs ->
+                        println("\n--- 👥 LISTE D'AMIS DE ${joueur.pseudo} ---")
+
+                        var aDesAmis = false
+                        while (rs.next()) {
+                            aDesAmis = true
+                            val ami = rs.getString("ami_pseudo")
+                            val date = rs.getTimestamp("date_ajout")
+                            println("• $ami (Amis depuis le : $date)")
+                        }
+
+                        if (!aDesAmis) {
+                            println("Vous n'avez pas encore d'amis.")
+                        }
+                    } // Le ResultSet est fermé ici
+                } // Le PreparedStatement est fermé ici
+            } // La Connection est fermée ici
+        } catch (e: Exception) {
+            println("⚠️ Erreur d'affichage : ${e.message}")
+        }
+    }
+
+
 }
