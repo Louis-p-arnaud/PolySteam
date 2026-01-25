@@ -256,6 +256,7 @@ fun menuBoutique(service: Evenement, scanner: Scanner) {
         println("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
         println("1. 📋 Consulter la fiche d'un jeu")
         println("2. 💳 Acheter un jeu")
+        println("3. 💖 Gérer ma wishlist")
         println("0. ↩️  Retour au menu principal")
         println("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
         print("👉 Votre choix : ")
@@ -292,6 +293,19 @@ fun menuBoutique(service: Evenement, scanner: Scanner) {
                     }
                 }
 
+                attendreUtilisateur(scanner)
+            }
+            // Dans Main.kt, fonction menuBoutique
+            "3" -> {
+                println("\n--- 💖 MA WISHLIST ---")
+                service.afficherWishlist()
+                println("\n[1] Ajouter un jeu | [0] Retour")
+                print("👉 Choix : ")
+                if (scanner.nextLine() == "1") {
+                    print("Titre du jeu à ajouter : ")
+                    val titre = scanner.nextLine()
+                    service.ajouterALaWishlist(titre)
+                }
                 attendreUtilisateur(scanner)
             }
             "0" -> {
@@ -346,7 +360,10 @@ fun menuSocial(service: Evenement, scanner: Scanner) {
                 attendreUtilisateur(scanner)
             }
             "3" -> {
+                val ilYADesDemandes = service.consulterDemandeAmi()
+
                 println("\n✅ ACCEPTER UNE DEMANDE D'AMI")
+
                 print("Pseudo de l'expéditeur : ")
                 val pseudo = scanner.nextLine().trim()
 
@@ -481,6 +498,31 @@ fun menuProfil(service: Evenement, utilisateur: Joueur, scanner: Scanner) {
                 println("↩️  Retour au menu principal...")
             }
             else -> println("❌ Option invalide. Veuillez choisir 1 ou 0.")
+        }
+    }
+}
+
+
+fun menuWishlist(service: Evenement, scanner: Scanner) {
+    var enWishlist = true
+    while (enWishlist) {
+        // Affiche la liste actuelle
+        service.afficherWishlist()
+
+        println("\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
+        println("1. ✨ Ajouter un jeu à ma liste")
+        println("0. ↩️  Retour")
+        print("\n👉 Choix : ")
+
+        when (scanner.nextLine()) {
+            "1" -> {
+                print("Titre du jeu à ajouter : ")
+                val titre = scanner.nextLine()
+                service.ajouterALaWishlist(titre)
+                attendreUtilisateur(scanner)
+            }
+            "0" -> enWishlist = false
+            else -> println("❌ Option invalide.")
         }
     }
 }

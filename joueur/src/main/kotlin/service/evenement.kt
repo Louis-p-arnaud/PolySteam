@@ -136,9 +136,7 @@ class Evenement(private val joueur: Joueur) {
     }
 
 
-    fun inscriptionLocale() {
-        println("📝 Préparation de l'inscription pour ${joueur.pseudo} dans la base commune.")
-    }
+
 
 
 
@@ -590,12 +588,13 @@ class Evenement(private val joueur: Joueur) {
                 // 3. Évaluations laissées par le joueur
                 println("\n⭐ ÉVALUATIONS LAISSÉES :")
                 val sqlEval = """
-                SELECT jc.titre, e.note, e.commentaire, e.date_publication
-                FROM evaluation e
-                JOIN jeu_catalogue jc ON e.jeu_id = jc.id
-                WHERE e.joueur_pseudo = ?
-                ORDER BY e.date_publication DESC
-            """.trimIndent()
+                    SELECT jc.titre, e.note, e.commentaire, e.date_publication, 
+                           e.nombre_votes_utile, e.nombre_votes_pas_utile
+                    FROM evaluation e
+                    JOIN jeu_catalogue jc ON e.jeu_id = jc.id
+                    WHERE e.joueur_pseudo = ?
+                    ORDER BY e.date_publication DESC
+                """.trimIndent()
 
                 conn.prepareStatement(sqlEval).use { stmtE ->
                     stmtE.setString(1, pseudoRecherche)
@@ -603,11 +602,16 @@ class Evenement(private val joueur: Joueur) {
                         var aDesEvals = false
                         while (rsE.next()) {
                             aDesEvals = true
+                            val likes = rsE.getInt("nombre_votes_utile")
+                            val dislikes = rsE.getInt("nombre_votes_pas_utile")
+
                             println("--------------------------------------------")
-                            println("Jeu : ${rsE.getString("titre")}")
-                            println("Note : ${rsE.getInt("note")}/10")
+                            println("Jeu         : ${rsE.getString("titre")}")
+                            println("Note        : ${rsE.getInt("note")}/10")
                             println("Commentaire : \"${rsE.getString("commentaire")}\"")
-                            println("Le : ${rsE.getTimestamp("date_publication")}")
+                            println("Le          : ${rsE.getTimestamp("date_publication")}")
+                            // Affichage des nouveaux compteurs
+                            println("👍 Utile ($likes) | 👎 Pas utile ($dislikes)")
                         }
                         if (!aDesEvals) println("Aucune évaluation rédigée.")
                     }
@@ -863,6 +867,117 @@ class Evenement(private val joueur: Joueur) {
         } catch (e: Exception) {
             println("⚠️ Erreur lors de la connexion : ${e.message}")
             return null
+        }
+    }
+
+
+    fun consulterDemandeAmi(): Boolean {
+        val url = "jdbc:postgresql://86.252.172.215:5432/polysteam"
+        val user = "polysteam_user"
+        val pass = "PolySteam2026!"
+
+        try {
+            Class.forName("org.postgresql.Driver")
+            return DriverManager.getConnection(url, user, pass).use { conn ->
+                // On cherche les demandes où l'utilisateur connecté est le destinataire (ami_pseudo)
+                val sql = "SELECT joueur_pseudo, date_ajout FROM ami WHERE ami_pseudo = ? AND statut = 'EN_ATTENTE'"
+
+                conn.prepareStatement(sql).use { stmt ->
+                    stmt.setString(1, joueur.pseudo)
+
+                    stmt.executeQuery().use { rs ->
+                        println("\n--- ✉️ DEMANDES D'AMITIÉ REÇUES ---")
+                        var aDesDemandes = false
+
+                        while (rs.next()) {
+                            aDesDemandes = true
+                            val expediteur = rs.getString("joueur_pseudo")
+                            val date = rs.getTimestamp("date_ajout")
+                            println("• $expediteur (Reçue le : $date)")
+                        }
+
+                        if (!aDesDemandes) {
+                            println("Aucune demande en attente.")
+                            false
+                        } else {
+                            true
+                        }
+                    }
+                }
+            }
+        } catch (e: Exception) {
+            println("⚠️ Erreur lors de la consultation des demandes : ${e.message}")
+            return false
+        }
+    }
+
+
+    fun ajouterALaWishlist(titreJeu: String): Boolean {
+        val url = "jdbc:postgresql://86.252.172.215:5432/polysteam"
+        val user = "polysteam_user"
+        val pass = "PolySteam2026!"
+
+        return try {
+            DriverManager.getConnection(url, user, pass).use { conn ->
+                // 1. Trouver l'ID (VARCHAR) du jeu
+                val sqlId = "SELECT id FROM jeu_catalogue WHERE titre = ? LIMIT 1"
+                val jeuId = conn.prepareStatement(sqlId).use { stmt ->
+                    stmt.setString(1, titreJeu)
+                    stmt.executeQuery().use { rs ->
+                        if (rs.next()) rs.getString("id") else null // Changé en getString
+                    }
+                }
+
+                if (jeuId == null) {
+                    println("❌ Jeu non trouvé dans le catalogue.")
+                    return false
+                }
+
+                // 2. Insérer dans la wishlist (en utilisant setString pour l'ID)
+                val sqlInsert = "INSERT INTO wishlist (joueur_pseudo, jeu_id) VALUES (?, ?)"
+                conn.prepareStatement(sqlInsert).use { stmt ->
+                    stmt.setString(1, joueur.pseudo)
+                    stmt.setString(2, jeuId) // Changé en setString
+                    stmt.executeUpdate()
+                }
+                println("💖 $titreJeu a été ajouté à votre liste de souhaits !")
+                true
+            }
+        } catch (e: Exception) {
+            println("⚠️ Erreur : Jeu déjà présent ou problème de connexion.")
+            false
+        }
+    }
+
+    fun afficherWishlist() {
+        val url = "jdbc:postgresql://86.252.172.215:5432/polysteam"
+        val user = "polysteam_user"
+        val pass = "PolySteam2026!"
+
+        try {
+            DriverManager.getConnection(url, user, pass).use { conn ->
+                val sql = """
+                SELECT jc.titre, jc.prix_actuel, jc.plateforme 
+                FROM wishlist w
+                JOIN jeu_catalogue jc ON w.jeu_id = jc.id
+                WHERE w.joueur_pseudo = ?
+            """.trimIndent()
+
+                conn.prepareStatement(sql).use { stmt ->
+                    stmt.setString(1, joueur.pseudo)
+                    stmt.executeQuery().use { rs ->
+                        println("\n--- ✨ MA WISHLIST (${joueur.pseudo}) ---")
+                        var empty = true
+                        while (rs.next()) {
+                            empty = false
+                            println("• ${rs.getString("titre")} [${rs.getString("plateforme")}] - ${rs.getDouble("prix_actuel")}€")
+                        }
+                        if (empty) println("Votre wishlist est vide.")
+                    }
+                }
+            }
+        } catch (e: Exception) {
+            println("⚠️ Erreur lors de l'affichage de la wishlist : ${e.message}")
         }
     }
 
