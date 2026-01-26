@@ -127,6 +127,13 @@ public class CommentairesConsumer {
 
             ps.executeUpdate();
             System.out.println("✅ Évaluation persistée (eventId=" + r.get("eventId") + ")");
+
+            //Log vers le dashboard
+            String pseudo = r.get("pseudoJoueur") != null ? r.get("pseudoJoueur").toString() : "Anonyme";
+            String titre = r.get("titreJeu") != null ? r.get("titreJeu").toString() : "Jeu inconnu";
+            ui.EditeurDashboard.log("💬 [Commentaire] " + pseudo + " a noté " + titre + " (" + note + "/10)");
+
+
         } catch (Exception e) {
             System.err.println("Erreur insertion évaluation: " + e.getMessage());
             e.printStackTrace();
