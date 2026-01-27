@@ -1,5 +1,6 @@
 import config.DatabaseConfig;
 import dao.*;
+import kafka.JoueurIncidentEventConsumer;
 import model.*;
 
 import java.util.List;
@@ -21,6 +22,9 @@ public class main {
     private static EvaluationDAO evaluationDAO;
     private static RapportIncidentDAO incidentDAO;
 
+    // Kafka Consumer pour écouter les incidents des joueurs
+    private static JoueurIncidentEventConsumer kafkaConsumer;
+
     public static void main(String[] args) {
         scanner = new Scanner(System.in);
 
@@ -39,8 +43,14 @@ public class main {
         plateforme = new Plateforme("PolySteam");
         chargerDonneesDepuisBDD();
 
+        // Démarrer le consumer Kafka en arrière-plan
+        demarrerKafkaConsumer();
+
         // Lancer le menu principal
         menuPrincipal();
+
+        // Fermeture propre du consumer Kafka
+        arreterKafkaConsumer();
 
         scanner.close();
         System.out.println("\n👋 Merci d'avoir utilisé PolySteam ! À bientôt !\n");
@@ -837,6 +847,40 @@ public class main {
         } catch (Exception e) {
             scanner.nextLine(); // Nettoyer le buffer
             return -1;
+        }
+    }
+
+    /**
+     * Démarre le consumer Kafka en arrière-plan pour écouter les incidents des joueurs
+     */
+    private static void demarrerKafkaConsumer() {
+        try {
+            System.out.println("════════════════════════════════════════════════════════════");
+            System.out.println("🔌 Initialisation du système Kafka...");
+            kafkaConsumer = new JoueurIncidentEventConsumer();
+            kafkaConsumer.demarrerEcoute();
+            System.out.println("✅ Système Kafka opérationnel en arrière-plan");
+            System.out.println("════════════════════════════════════════════════════════════\n");
+        } catch (Exception e) {
+            System.err.println("⚠️  Avertissement : Impossible de démarrer le consumer Kafka");
+            System.err.println("   Raison : " + e.getMessage());
+            System.err.println("   L'application continuera sans écoute Kafka.\n");
+            kafkaConsumer = null;
+        }
+    }
+
+    /**
+     * Arrête proprement le consumer Kafka
+     */
+    private static void arreterKafkaConsumer() {
+        if (kafkaConsumer != null) {
+            try {
+                System.out.println("\n🔌 Fermeture du consumer Kafka...");
+                kafkaConsumer.fermer();
+                System.out.println("✅ Consumer Kafka fermé proprement");
+            } catch (Exception e) {
+                System.err.println("⚠️  Erreur lors de la fermeture du consumer Kafka: " + e.getMessage());
+            }
         }
     }
 }

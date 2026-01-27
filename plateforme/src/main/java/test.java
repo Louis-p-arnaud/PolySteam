@@ -1,6 +1,7 @@
 import model.*;
 import kafka.IncidentEventProducer;
 import kafka.EvaluationEventProducer;
+import kafka.JoueurIncidentEventConsumer;
 
 import java.time.LocalDate;
 import java.util.Arrays;
@@ -350,6 +351,7 @@ public class test {
         // ====================================
         // TEST KAFKA - PUBLICATION D'ÉVÉNEMENTS
         // ====================================
+        /*
         System.out.println("\n╔════════════════════════════════════════════╗");
         System.out.println("║      📤 TEST KAFKA - ÉVÉNEMENTS 📤         ║");
         System.out.println("╚════════════════════════════════════════════╝\n");
@@ -412,9 +414,13 @@ public class test {
             e.printStackTrace();
         }
 
+        */
+
+
         // ====================================
         // TEST KAFKA - ÉVÉNEMENTS D'ÉVALUATION
         // ====================================
+        /*
         System.out.println("\n╔════════════════════════════════════════════╗");
         System.out.println("║   📝 TEST KAFKA - ÉVALUATIONS DE JEUX 📝   ║");
         System.out.println("╚════════════════════════════════════════════╝\n");
@@ -491,6 +497,44 @@ public class test {
 
         } catch (Exception e) {
             System.err.println("❌ Erreur lors du test Kafka (Évaluations): " + e.getMessage());
+            e.printStackTrace();
+        }
+
+        */
+
+
+        // ====================================
+        // TEST KAFKA - CONSUMER D'INCIDENTS DES JOUEURS
+        // ====================================
+        System.out.println("\n╔════════════════════════════════════════════╗");
+        System.out.println("║  👂 TEST KAFKA - CONSUMER D'INCIDENTS 👂   ║");
+        System.out.println("╚════════════════════════════════════════════╝\n");
+
+        try {
+            System.out.println("🔌 Initialisation du Kafka Consumer...");
+            JoueurIncidentEventConsumer consumer = new JoueurIncidentEventConsumer();
+
+            System.out.println("\n💡 Ce consumer écoute le topic 'rapports-incidents' envoyé par l'application Joueur");
+            System.out.println("💡 Chaque incident reçu sera AUTOMATIQUEMENT republié sur le topic 'plateforme.incidents'\n");
+
+            System.out.println("📊 Lecture des messages existants dans le topic 'rapports-incidents'...");
+            System.out.println("⏱️  Timeout: 10 secondes\n");
+
+            // Démarrer l'écoute en mode synchrone pour voir les résultats
+            // Paramètres : maxMessages=5 (lire max 5 messages), timeout=10 secondes
+            consumer.demarrerEcouteSynchrone(5, 10);
+
+            // Fermer le consumer
+            consumer.fermer();
+
+            System.out.println("\n✅ Test du consumer terminé !");
+            System.out.println("💡 Si vous avez vu des messages, ils ont été automatiquement republiés sur 'plateforme.incidents'");
+            System.out.println("💡 Vérifiez les deux topics sur Kafka UI: http://localhost:8080");
+            System.out.println("   - Topic source : 'rapports-incidents' (messages des joueurs)");
+            System.out.println("   - Topic destination : 'plateforme.incidents' (messages republiés par la plateforme)");
+
+        } catch (Exception e) {
+            System.err.println("❌ Erreur lors du test Kafka (Consumer): " + e.getMessage());
             e.printStackTrace();
         }
 
