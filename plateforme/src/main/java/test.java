@@ -2,6 +2,7 @@ import model.*;
 import kafka.IncidentEventProducer;
 import kafka.EvaluationEventProducer;
 import kafka.JoueurIncidentEventConsumer;
+import kafka.JoueurEvaluationEventConsumer;
 
 import java.time.LocalDate;
 import java.util.Arrays;
@@ -514,10 +515,10 @@ public class test {
             System.out.println("🔌 Initialisation du Kafka Consumer...");
             JoueurIncidentEventConsumer consumer = new JoueurIncidentEventConsumer();
 
-            System.out.println("\n💡 Ce consumer écoute le topic 'rapports-incidents' envoyé par l'application Joueur");
+            System.out.println("\n💡 Ce consumer écoute le topic 'joueur.rapports.incidents' envoyé par l'application Joueur");
             System.out.println("💡 Chaque incident reçu sera AUTOMATIQUEMENT republié sur le topic 'plateforme.incidents'\n");
 
-            System.out.println("📊 Lecture des messages existants dans le topic 'rapports-incidents'...");
+            System.out.println("📊 Lecture des messages existants dans le topic 'joueur.rapports.incidents'...");
             System.out.println("⏱️  Timeout: 10 secondes\n");
 
             // Démarrer l'écoute en mode synchrone pour voir les résultats
@@ -527,14 +528,50 @@ public class test {
             // Fermer le consumer
             consumer.fermer();
 
-            System.out.println("\n✅ Test du consumer terminé !");
+            System.out.println("\n✅ Test du consumer d'incidents terminé !");
             System.out.println("💡 Si vous avez vu des messages, ils ont été automatiquement republiés sur 'plateforme.incidents'");
             System.out.println("💡 Vérifiez les deux topics sur Kafka UI: http://localhost:8080");
-            System.out.println("   - Topic source : 'rapports-incidents' (messages des joueurs)");
+            System.out.println("   - Topic source : 'joueur.rapports.incidents' (messages des joueurs)");
             System.out.println("   - Topic destination : 'plateforme.incidents' (messages republiés par la plateforme)");
 
         } catch (Exception e) {
-            System.err.println("❌ Erreur lors du test Kafka (Consumer): " + e.getMessage());
+            System.err.println("❌ Erreur lors du test Kafka (Consumer Incidents): " + e.getMessage());
+            e.printStackTrace();
+        }
+
+        // ====================================
+        // TEST KAFKA - CONSUMER D'ÉVALUATIONS DES JOUEURS
+        // ====================================
+        System.out.println("\n╔════════════════════════════════════════════╗");
+        System.out.println("║  ⭐ TEST KAFKA - CONSUMER D'ÉVALUATIONS ⭐  ║");
+        System.out.println("╚════════════════════════════════════════════╝\n");
+
+        try {
+            System.out.println("🔌 Initialisation du Kafka Consumer (Évaluations)...");
+            JoueurEvaluationEventConsumer evaluationConsumer = new JoueurEvaluationEventConsumer();
+
+            System.out.println("\n💡 Ce consumer écoute le topic 'joueur.notifications.evaluations' envoyé par l'application Joueur");
+            System.out.println("💡 Chaque évaluation reçue sera AUTOMATIQUEMENT republiée sur le topic 'plateforme.evaluations'");
+            System.out.println("💡 La variable 'recommande' sera mise à TRUE uniquement si la note est > 5\n");
+
+            System.out.println("📊 Lecture des messages existants dans le topic 'joueur.notifications.evaluations'...");
+            System.out.println("⏱️  Timeout: 10 secondes\n");
+
+            // Démarrer l'écoute en mode synchrone pour voir les résultats
+            // Paramètres : maxMessages=5 (lire max 5 messages), timeout=10 secondes
+            evaluationConsumer.demarrerEcouteSynchrone(5, 10);
+
+            // Fermer le consumer
+            evaluationConsumer.fermer();
+
+            System.out.println("\n✅ Test du consumer d'évaluations terminé !");
+            System.out.println("💡 Si vous avez vu des messages, ils ont été automatiquement republiés sur 'plateforme.evaluations'");
+            System.out.println("💡 Vérifiez les deux topics sur Kafka UI: http://localhost:8080");
+            System.out.println("   - Topic source : 'joueur.notifications.evaluations' (messages des joueurs)");
+            System.out.println("   - Topic destination : 'plateforme.evaluations' (messages republiés par la plateforme)");
+
+        } catch (Exception e) {
+            System.err.println("❌ Erreur lors du test Kafka (Consumer Évaluations): " + e.getMessage());
             e.printStackTrace();
         }
 

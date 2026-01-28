@@ -1,6 +1,7 @@
 import config.DatabaseConfig;
 import dao.*;
 import kafka.JoueurIncidentEventConsumer;
+import kafka.JoueurEvaluationEventConsumer;
 import model.*;
 
 import java.util.List;
@@ -22,8 +23,9 @@ public class main {
     private static EvaluationDAO evaluationDAO;
     private static RapportIncidentDAO incidentDAO;
 
-    // Kafka Consumer pour écouter les incidents des joueurs
-    private static JoueurIncidentEventConsumer kafkaConsumer;
+    // Kafka Consumers pour écouter les messages des joueurs
+    private static JoueurIncidentEventConsumer kafkaIncidentConsumer;
+    private static JoueurEvaluationEventConsumer kafkaEvaluationConsumer;
 
     public static void main(String[] args) {
         scanner = new Scanner(System.in);
@@ -851,35 +853,57 @@ public class main {
     }
 
     /**
-     * Démarre le consumer Kafka en arrière-plan pour écouter les incidents des joueurs
+     * Démarre les consumers Kafka en arrière-plan pour écouter les messages des joueurs
      */
     private static void demarrerKafkaConsumer() {
         try {
             System.out.println("════════════════════════════════════════════════════════════");
             System.out.println("🔌 Initialisation du système Kafka...");
-            kafkaConsumer = new JoueurIncidentEventConsumer();
-            kafkaConsumer.demarrerEcoute();
+
+            // Consumer pour les incidents
+            kafkaIncidentConsumer = new JoueurIncidentEventConsumer();
+            kafkaIncidentConsumer.demarrerEcoute();
+            System.out.println("✅ Consumer d'incidents opérationnel");
+
+            // Consumer pour les évaluations
+            kafkaEvaluationConsumer = new JoueurEvaluationEventConsumer();
+            kafkaEvaluationConsumer.demarrerEcoute();
+            System.out.println("✅ Consumer d'évaluations opérationnel");
+
             System.out.println("✅ Système Kafka opérationnel en arrière-plan");
             System.out.println("════════════════════════════════════════════════════════════\n");
         } catch (Exception e) {
-            System.err.println("⚠️  Avertissement : Impossible de démarrer le consumer Kafka");
+            System.err.println("⚠️  Avertissement : Impossible de démarrer les consumers Kafka");
             System.err.println("   Raison : " + e.getMessage());
             System.err.println("   L'application continuera sans écoute Kafka.\n");
-            kafkaConsumer = null;
+            kafkaIncidentConsumer = null;
+            kafkaEvaluationConsumer = null;
         }
     }
 
     /**
-     * Arrête proprement le consumer Kafka
+     * Arrête proprement les consumers Kafka
      */
     private static void arreterKafkaConsumer() {
-        if (kafkaConsumer != null) {
+        // Arrêter le consumer d'incidents
+        if (kafkaIncidentConsumer != null) {
             try {
-                System.out.println("\n🔌 Fermeture du consumer Kafka...");
-                kafkaConsumer.fermer();
-                System.out.println("✅ Consumer Kafka fermé proprement");
+                System.out.println("\n🔌 Fermeture du consumer d'incidents...");
+                kafkaIncidentConsumer.fermer();
+                System.out.println("✅ Consumer d'incidents fermé proprement");
             } catch (Exception e) {
-                System.err.println("⚠️  Erreur lors de la fermeture du consumer Kafka: " + e.getMessage());
+                System.err.println("⚠️  Erreur lors de la fermeture du consumer d'incidents: " + e.getMessage());
+            }
+        }
+
+        // Arrêter le consumer d'évaluations
+        if (kafkaEvaluationConsumer != null) {
+            try {
+                System.out.println("🔌 Fermeture du consumer d'évaluations...");
+                kafkaEvaluationConsumer.fermer();
+                System.out.println("✅ Consumer d'évaluations fermé proprement");
+            } catch (Exception e) {
+                System.err.println("⚠️  Erreur lors de la fermeture du consumer d'évaluations: " + e.getMessage());
             }
         }
     }

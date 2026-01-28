@@ -21,13 +21,13 @@ import java.util.Properties;
 
 /**
  * Consumer Kafka pour récupérer les événements de rapports d'incidents
- * envoyés par l'application Joueur sur le topic "rapports-incidents"
+ * envoyés par l'application Joueur sur le topic "joueur.rapports.incidents"
  */
 public class JoueurIncidentEventConsumer {
 
     private static final String KAFKA_BOOTSTRAP_SERVERS = "86.252.172.215:9092";
     private static final String SCHEMA_REGISTRY_URL = "http://86.252.172.215:8081";
-    private static final String TOPIC_NAME = "rapports-incidents";
+    private static final String TOPIC_NAME = "joueur.rapports.incidents";
     private static final String CONSUMER_GROUP_ID = "plateforme-consumer-group";
 
     private final KafkaConsumer<String, GenericRecord> consumer;
