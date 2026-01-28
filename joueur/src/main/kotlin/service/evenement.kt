@@ -2,7 +2,6 @@ package service
 
 import model.Jeu
 import model.Joueur
-import com.projet.joueur.RapportIncidentEvent
 import infrastructure.KafkaClientFactory
 import org.apache.kafka.clients.producer.ProducerRecord
 import java.sql.DriverManager
@@ -107,9 +106,9 @@ class Evenement(private val joueur: Joueur) {
                     val avroRecord = GenericData.Record(schema).apply {
                         put("joueur_pseudo", joueur.pseudo); put("jeu_id", jeuId)
                         put("titre", titre); put("plateforme", plateforme)
-                        put("type_erreur", "AVRO_SERIALIZED_CRASH"); put("timestamp", System.currentTimeMillis())
+                        put("type_erreur", "CRASH"); put("timestamp", System.currentTimeMillis())
                     }
-                    producer.send(ProducerRecord("rapports-incidents", joueur.pseudo, avroRecord))
+                    producer.send(ProducerRecord("joueur.rapports.incidents", joueur.pseudo, avroRecord))
                     break
                 }
 
@@ -159,7 +158,6 @@ class Evenement(private val joueur: Joueur) {
 
         try {
             DriverManager.getConnection(url, user, password).use { conn ->
-                // INSERT incluant maintenant la colonne mot_de_passe
                 val insertSql = "INSERT INTO joueur (pseudo, nom, prenom, date_naissance, mot_de_passe) VALUES (?, ?, ?, ?::date, ?)"
 
                 conn.prepareStatement(insertSql).use { insertStmt ->
@@ -484,64 +482,122 @@ class Evenement(private val joueur: Joueur) {
         }
     }
 
-    fun evaluerJeu(titre: String, plateforme: String, note: Int, commentaire: String): Boolean {
+    fun evaluerJeu(titre: String, plateforme: String, note: Int, commentaire: String) {
         val url = "jdbc:postgresql://86.252.172.215:5432/polysteam"
         val user = "polysteam_user"
         val pass = "PolySteam2026!"
 
-        return try {
-            Class.forName("org.postgresql.Driver")
+        try {
             DriverManager.getConnection(url, user, pass).use { conn ->
-
-                // 1. Récupérer l'ID du jeu et vérifier possession + temps de jeu
-                val checkSql = """
+                // 1. Récupération de l'ID du jeu et du temps de jeu du joueur
+                // On fait une jointure pour avoir le temps de jeu réel en même temps
+                val sqlInfos = """
                 SELECT jc.id, jp.temps_jeu_minutes 
                 FROM jeu_catalogue jc
-                JOIN jeu_possede jp ON jc.id = jp.jeu_id
-                WHERE jc.titre = ? AND UPPER(jc.plateforme) = UPPER(?) AND jp.joueur_pseudo = ?
+                LEFT JOIN jeu_possede jp ON jc.id = jp.jeu_id AND jp.joueur_pseudo = ?
+                WHERE jc.titre = ? AND jc.plateforme = ?
             """.trimIndent()
 
-                val jeuId = conn.prepareStatement(checkSql).use { stmt ->
-                    stmt.setString(1, titre)
-                    stmt.setString(2, plateforme)
-                    stmt.setString(3, joueur.pseudo)
-
+                val infos = conn.prepareStatement(sqlInfos).use { stmt ->
+                    stmt.setString(1, joueur.pseudo)
+                    stmt.setString(2, titre)
+                    stmt.setString(3, plateforme)
                     stmt.executeQuery().use { rs ->
                         if (rs.next()) {
-                            val tempsJeu = rs.getInt("temps_jeu_minutes")
-                            if (tempsJeu < 60) {
-                                println("❌ Erreur : Vous devez avoir joué au moins 1 heure (actuellement : ${tempsJeu}min).")
-                                return false // Sortie propre
-                            }
-                            rs.getString("id")
-                        } else {
-                            println("❌ Erreur : Vous ne possédez pas ce jeu sur cette plateforme.")
-                            return false // Sortie propre
-                        }
+                            // On récupère l'ID et le temps de jeu (0 si non trouvé)
+                            Pair(rs.getString("id"), rs.getInt("temps_jeu_minutes"))
+                        } else null
                     }
                 }
 
-                // 2. Insérer l'évaluation
-                val insertSql = """
-                INSERT INTO evaluation (joueur_pseudo, jeu_id, note, commentaire) 
-                VALUES (?, ?, ?, ?)
+                if (infos == null) {
+                    println("❌ Jeu non trouvé dans le catalogue.")
+                    return
+                }
+                val (jeuId, tempsJeu) = infos
+
+                // 2. Insertion de l'évaluation en base SQL
+                val sqlInsert = """
+                INSERT INTO evaluation (joueur_pseudo, jeu_id, note, commentaire, date_publication) 
+                VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP)
             """.trimIndent()
 
-                conn.prepareStatement(insertSql).use { insertStmt ->
-                    insertStmt.setString(1, joueur.pseudo)
-                    insertStmt.setString(2, jeuId)
-                    insertStmt.setInt(3, note)
-                    insertStmt.setString(4, commentaire)
-
-                    insertStmt.executeUpdate()
+                conn.prepareStatement(sqlInsert).use { stmt ->
+                    stmt.setString(1, joueur.pseudo)
+                    stmt.setString(2, jeuId)
+                    stmt.setInt(3, note)
+                    stmt.setString(4, commentaire)
+                    stmt.executeUpdate()
                 }
 
-                println("⭐ Évaluation publiée avec succès pour '$titre' !")
-                true
+                println("⭐ Évaluation publiée en base de données !")
+
+                // 3. ENVOI KAFKA : Appel avec les nouveaux paramètres requis par Avro
+                envoyerNotificationEvaluation(
+                    titre = titre,
+                    jeuId = jeuId,
+                    note = note,
+                    commentaire = commentaire,
+                    tempsJeu = tempsJeu
+                )
             }
         } catch (e: Exception) {
             println("⚠️ Erreur lors de l'évaluation : ${e.message}")
-            false
+        }
+    }
+
+    private fun envoyerNotificationEvaluation(
+        titre: String,
+        jeuId: String,
+        note: Int,
+        commentaire: String,
+        tempsJeu: Int
+    ) {
+        var producer: KafkaProducer<String, GenericRecord>? = null
+        try {
+            val props = creerConfigurationKafkaAvro()
+            producer = KafkaProducer<String, GenericRecord>(props)
+
+            // ON DÉFINIT LE SCHÉMA DIRECTEMENT ICI (Plus de problème de fichier introuvable)
+            val schemaString = """
+        {
+          "type": "record",
+          "name": "NouvelleEvaluation",
+          "namespace": "com.polysteam.avro",
+          "fields": [
+            {"name": "eventId", "type": "string"},
+            {"name": "timestamp", "type": "long"},
+            {"name": "jeuId", "type": "string"},
+            {"name": "titreJeu", "type": "string"},
+            {"name": "pseudoJoueur", "type": "string"},
+            {"name": "note", "type": "int"},
+            {"name": "commentaire", "type": "string"},
+            {"name": "tempsDeJeuEnMinutes", "type": "int"}
+          ]
+        }
+        """.trimIndent()
+
+            val schema = Schema.Parser().parse(schemaString)
+
+            val avroRecord = GenericData.Record(schema).apply {
+                put("eventId", java.util.UUID.randomUUID().toString())
+                put("timestamp", System.currentTimeMillis())
+                put("jeuId", jeuId)
+                put("titreJeu", titre)
+                put("pseudoJoueur", joueur.pseudo)
+                put("note", note)
+                put("commentaire", commentaire)
+                put("tempsDeJeuEnMinutes", tempsJeu)
+            }
+
+            val record = ProducerRecord<String, GenericRecord>("joueur.notifications.evaluations", joueur.pseudo, avroRecord)
+            producer.send(record)
+            println("📡 Notification Avro envoyée avec succès !")
+
+        } catch (e: Exception) {
+            println("⚠️ Erreur envoi Avro : ${e.message}")
+        } finally {
+            producer?.close()
         }
     }
 
@@ -618,7 +674,6 @@ class Evenement(private val joueur: Joueur) {
                         var aDesSouhaits = false
                         while (rsW.next()) {
                             aDesSouhaits = true
-                            // ATTENTION : Ici le nom doit être identique au SELECT du SQL
                             val prix = rsW.getDouble("prix_actuel")
                             val titre = rsW.getString("titre")
                             val plateforme = rsW.getString("plateforme")

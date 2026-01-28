@@ -1,0 +1,15 @@
+{
+        "type": "record",
+        "name": "NouvelleEvaluation",
+        "namespace": "com.polysteam.avro",
+        "fields": [
+        {"name": "eventId", "type": "string"},
+        {"name": "timestamp", "type": "long"},
+        {"name": "jeuId", "type": "string"},
+        {"name": "titreJeu", "type": "string"},
+        {"name": "pseudoJoueur", "type": "string"},
+        {"name": "note", "type": "int"},
+        {"name": "commentaire", "type": "string"},
+        {"name": "tempsDeJeuEnMinutes", "type": "int"}
+        ]
+        }
