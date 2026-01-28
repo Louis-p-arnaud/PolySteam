@@ -10,6 +10,12 @@
     { "name" : "plateforme", "type" : "string" },
     { "name" : "genres", "type" : { "type": "array", "items": "string" } },
     { "name" : "numeroVersion", "type" : "string" },
-    { "name" : "versionAnticipe", "type" : "boolean" }
+    { "name" : "versionAnticipe", "type" : "boolean" },
+
+    {
+      "name" : "prixEditeur",
+      "type" : "double",
+      "default" : 0.0
+    }
   ]
 }

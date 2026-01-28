@@ -1,28 +1,28 @@
 package model;
 
 import java.util.List;
+import java.util.UUID;
 
 public class Patch {
-    private Jeu jeu;
-    private int idPatch;
+    private UUID id;
+    private String nomJeu;
     private String commentaireEditeur;
     private String nouvelleVersion;
     private List<String> modifications;
 
-    public Patch(Jeu jeu, int idPatch, String commentaireEditeur,
+    public Patch(String nomJeu, String commentaireEditeur,
                  String nouvelleVersion, List<String> modifications) {
-        this.jeu = jeu;
-        this.idPatch = idPatch;
+        this.id = UUID.randomUUID();
+        this.nomJeu = nomJeu;
         this.commentaireEditeur = commentaireEditeur;
         this.nouvelleVersion = nouvelleVersion;
         this.modifications = modifications;
     }
-
     @Override
     public String toString() {
         return "model.Patch{" +
-                "jeu=" + jeu +
-                ", idPatch=" + idPatch +
+                "jeu=" + nomJeu +
+                ", idPatch=" + id.toString() +
                 ", commentaireEditeur='" + commentaireEditeur + '\'' +
                 ", nouvelleVersion='" + nouvelleVersion + '\'' +
                 ", modifications=" + modifications +
@@ -30,12 +30,11 @@ public class Patch {
     }
 
     // Getters
-    public Jeu getJeu() {
-        return jeu;
-    }
 
-    public int getIdPatch() {
-        return idPatch;
+    public String getNomJeu() {return nomJeu;}
+
+    public UUID getIdPatch() {
+        return id;
     }
 
     public String getCommentaireEditeur() {

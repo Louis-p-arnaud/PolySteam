@@ -27,7 +27,7 @@ public class PublicationJeuEventProducer {
 
     private static final String KAFKA_BOOTSTRAP_SERVERS = "86.252.172.215:9092";
     private static final String SCHEMA_REGISTRY_URL = "http://86.252.172.215:8081";
-    private static final String DEFAULT_TOPIC = "polysteam.publication.jeu";
+    private static final String DEFAULT_TOPIC = "editeur.publications.jeux";
 
     private final KafkaProducer<String, GenericRecord> producer;
     private final Schema schema;
@@ -92,12 +92,13 @@ public class PublicationJeuEventProducer {
      * conforme au schéma Avro chargé puis envoie le message sur Kafka.
      */
     public void publierPublication(
-            String editeurId,
+            UUID editeurId,
             String nom,
             String plateforme,
             List<String> genres,
             String numeroVersion,
-            boolean versionAnticipe
+            boolean versionAnticipe,
+            double prixEditeur
     ) {
         try {
             System.out.println("  🔨 Création de l'événement PublicationJeu Avro...");
@@ -105,9 +106,10 @@ public class PublicationJeuEventProducer {
             GenericRecordBuilder builder = new GenericRecordBuilder(schema);
             builder.set("eventId", UUID.randomUUID().toString());
             builder.set("timestamp", System.currentTimeMillis());
-            builder.set("editeurId", editeurId != null ? editeurId : "");
+            builder.set("editeurId", editeurId != null ? editeurId.toString() : "");
             builder.set("nom", nom != null ? nom : "");
             builder.set("plateforme", plateforme != null ? plateforme : "");
+            builder.set("prixEditeur", prixEditeur); // Le type dans le schéma est double, on passe le double directement
 
             // Convertir la liste en org.apache.avro.generic.GenericData.Array
             GenericData.Array<String> avroGenres = new GenericData.Array<>(
@@ -126,7 +128,7 @@ public class PublicationJeuEventProducer {
 
             System.out.println("  ✅ Événement PublicationJeu Avro créé");
 
-            ProducerRecord<String, GenericRecord> record = new ProducerRecord<>(this.topicName, editeurId, event);
+            ProducerRecord<String, GenericRecord> record = new ProducerRecord<>(this.topicName, editeurId.toString(), event);
 
             var future = producer.send(record, (metadata, exception) -> {
                 if (exception != null) {

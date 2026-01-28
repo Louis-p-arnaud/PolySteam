@@ -2,12 +2,14 @@ package model;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.UUID;
 
 import kafka.PublicationJeuEventProducer;
 import kafka.PublicationPatchEventProducer;
 
 public class Editeur {
     private String nom;
+    private UUID id;
     private Enums.TYPE_EDITEUR type;
     private List<Jeu> jeuxPublies;
     private List<Patch> patchesPublies;
@@ -19,6 +21,7 @@ public class Editeur {
 
     public Editeur(String nom, Enums.TYPE_EDITEUR type) {
         this.nom = nom;
+        this.id = UUID.randomUUID();
         this.type = type;
         this.jeuxPublies = new ArrayList<>();
         this.patchesPublies = new ArrayList<>();
@@ -44,12 +47,13 @@ public class Editeur {
             }
 
             publicationProducer.publierPublication(
-                    this.nom, // editeurId : ici on utilise le nom de l'éditeur
+                    this.id,
                     jeu.getNom(),
                     jeu.getPlateformeExecution() != null ? jeu.getPlateformeExecution().name() : "",
                     genresAsString,
                     jeu.getNumeroVersion(),
-                    jeu.isVersionAnticipe()
+                    jeu.isVersionAnticipe(),
+                    jeu.getPrixEditeur()
             );
 
         } catch (Exception e) {
@@ -60,7 +64,7 @@ public class Editeur {
     public void publierPatch(Patch patch) {
         patchesPublies.add(patch);
         System.out.println("L'éditeur " + nom +
-                " publie le patch " + patch.getNouvelleVersion() + " pour le jeu " + patch.getJeu().getNom());
+                " publie le patch " + patch.getNouvelleVersion() + " pour le jeu " + patch.getNomJeu());
 
         try {
             if (publicationPatchProducer == null) {
@@ -68,8 +72,8 @@ public class Editeur {
             }
 
             publicationPatchProducer.publierPublicationPatch(
-                    this.nom, // editeurId
-                    patch.getJeu().getNom(),
+                    this.id, // editeurId
+                    patch.getNomJeu(),
                     patch.getIdPatch(),
                     patch.getCommentaireEditeur(),
                     patch.getNouvelleVersion(),
@@ -77,7 +81,7 @@ public class Editeur {
             );
 
         } catch (Exception e) {
-            System.err.println("Erreur lors de la publication Kafka du patch pour " + patch.getJeu().getNom() + " : " + e.getMessage());
+            System.err.println("Erreur lors de la publication Kafka du patch pour " + patch.getNomJeu() + " : " + e.getMessage());
         }
     }
 
@@ -85,6 +89,8 @@ public class Editeur {
     public String getNom() {
         return nom;
     }
+
+    public UUID getId(){ return id;}
 
     public Enums.TYPE_EDITEUR getType() {
         return type;
@@ -96,5 +102,11 @@ public class Editeur {
 
     public List<Patch> getPatchesPublies() {
         return patchesPublies;
+    }
+
+    // Setters
+
+    public void setId(UUID id) {
+        this.id = id;
     }
 }

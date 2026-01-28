@@ -2,6 +2,7 @@ import io.confluent.kafka.serializers.AbstractKafkaSchemaSerDeConfig;
 import io.confluent.kafka.serializers.KafkaAvroSerializer;
 import kafka.CommentairesConsumer;
 import kafka.IncidentRoutingStream;
+import kafka.PublicationJeuEventProducer;
 import model.Editeur;
 import model.Enums;
 import model.Jeu;
@@ -33,6 +34,7 @@ public class Main {
     private static final String BOOTSTRAP_SERVERS = "86.252.172.215:9092";
     private static final String SCHEMA_REGISTRY_URL = "http://86.252.172.215:8081";
 
+
     public static void main(String[] args) {
         // 1. Désactiver les logs techniques Kafka
         System.setProperty("org.slf4j.simpleLogger.defaultLogLevel", "error");
@@ -60,6 +62,9 @@ public class Main {
         editeurs.add(new Editeur("Ubisoft", Enums.TYPE_EDITEUR.ENTREPRISE));
         editeurs.add(new Editeur("Valve", Enums.TYPE_EDITEUR.ENTREPRISE));
         editeurs.add(new Editeur("Studio Indie", Enums.TYPE_EDITEUR.INDEPENDANT));
+
+        //Envoi des éditeurs à la BDD
+        synchroniserEditeurs();
 
         runMenu();
     }
@@ -122,20 +127,28 @@ public class Main {
         String version = scanner.nextLine();
         System.out.print("Accès anticipé (true/false) : ");
         boolean anticipe = Boolean.parseBoolean(scanner.nextLine());
+        System.out.print("Prix éditeur : ");
+        double prix = scanner.nextDouble();
+        scanner.nextLine(); // Consommer le retour à la ligne après nextDouble()
+
+        Jeu jeuAPublier = new Jeu(nom, editeur, plateforme,genres, version, anticipe, prix);
 
         try {
-            // 1. Sauvegarde PostgreSQL
-            String sql = "INSERT INTO public.editeur_jeu (editeur_id, nom, plateforme, version, anticipe) VALUES (?, ?, ?, ?, ?)";
+            // 1. Sauvegarde PostgreSQL, conforme à la table dans PGAdmin
+            String sql = "INSERT INTO public.jeu_catalogue (id, titre, editeur_id, plateforme, version_actuelle, est_version_anticipee, prix_editeur, prix_actuel) VALUES (?, ?, ?, ?, ?, ?, ?, ?)";
             PreparedStatement ps = pgConnection.prepareStatement(sql);
-            ps.setString(1, editeur.getNom());
+            ps.setString(1, jeuAPublier.getId().toString());
             ps.setString(2, nom);
-            ps.setString(3, plateforme.toString());
-            ps.setString(4, version);
-            ps.setBoolean(5, anticipe);
+            ps.setString(3, editeur.getId().toString());// ID de l'Editeur (La Clé Étrangère)
+            ps.setString(4, plateforme.toString());
+            ps.setString(5, version);
+            ps.setBoolean(6, anticipe);
+            ps.setDouble(7, prix);
+            ps.setDouble(8, prix);
             ps.executeUpdate();
 
             // 2. Envoi vers Kafka
-            sendJeuEvent(editeur.getNom(), nom, plateforme.toString(), genres, version, anticipe);
+            editeur.publierJeu(jeuAPublier);
 
             ui.EditeurDashboard.log("📦 JEU CRÉÉ : " + nom + " par " + editeur.getNom() + " (v" + version + ")");
             System.out.println("✅ Jeu enregistré en base et envoyé sur Kafka.");
@@ -152,11 +165,11 @@ public class Main {
         Editeur editeur = choisirEditeur();
         if (editeur == null) return;
 
-        System.out.print("Nom du jeu à patcher : ");
+        System.out.print("Nom du jeu à patcher : (veillez à entrer le nom exact) ");
         String jeuNom = scanner.nextLine();
 
         // VÉRIFICATION CRITIQUE : Le jeu existe-t-il dans Postgres ?
-        if (!verifierExistenceJeu(jeuNom, editeur.getNom())) {
+        if (!verifierExistenceJeu(jeuNom, editeur.getId().toString())) {
             System.out.println("⚠️ ACTION ANNULÉE : Le jeu '" + jeuNom + "' n'existe pas en base pour l'éditeur " + editeur.getNom());
             return;
         }
@@ -174,17 +187,20 @@ public class Main {
             modifs.add(m);
         }
 
+        //on créé un objet patch qu'on publiera ensuite
+        Patch patchAPublier = new Patch(jeuNom, commentaire, nouvelleVersion, modifs);
+
         try {
             // 1. Mise à jour PostgreSQL (On met à jour la version actuelle du jeu)
-            String sql = "UPDATE public.editeur_jeu SET version = ? WHERE nom = ? AND editeur_id = ?";
+            String sql = "UPDATE public.jeu_catalogue SET version_actuelle = ? WHERE titre = ? AND editeur_id = ?";
             PreparedStatement ps = pgConnection.prepareStatement(sql);
             ps.setString(1, nouvelleVersion);
             ps.setString(2, jeuNom);
-            ps.setString(3, editeur.getNom());
+            ps.setString(3, editeur.getId().toString());
             ps.executeUpdate();
 
             // 2. Envoi Kafka
-            sendPatchEvent(editeur.getNom(), jeuNom, nouvelleVersion, modifs, commentaire);
+            editeur.publierPatch(patchAPublier);
 
             ui.EditeurDashboard.log("🔧 PATCH APPLIQUÉ : " + jeuNom + " passe en v" + nouvelleVersion);
             System.out.println("✅ Patch validé en base et publié.");
@@ -198,7 +214,7 @@ public class Main {
 
     private static boolean verifierExistenceJeu(String nom, String editeurId) {
         try {
-            String sql = "SELECT COUNT(*) FROM public.editeur_jeu WHERE nom = ? AND editeur_id = ?";
+            String sql = "SELECT COUNT(*) FROM public.jeu_catalogue WHERE titre = ? AND editeur_id = ?";
             PreparedStatement ps = pgConnection.prepareStatement(sql);
             ps.setString(1, nom);
             ps.setString(2, editeurId);
@@ -208,40 +224,6 @@ public class Main {
         return false;
     }
 
-    private static void sendJeuEvent(String eid, String nom, String plat, List<Enums.GENRE> g, String v, boolean a) {
-        String schemaJson = "{\"type\":\"record\",\"namespace\":\"com.polysteam.events\",\"name\":\"PublicationJeuEvent\",\"fields\":[{\"name\":\"eventId\",\"type\":\"string\"},{\"name\":\"timestamp\",\"type\":\"long\"},{\"name\":\"editeurId\",\"type\":\"string\"},{\"name\":\"nom\",\"type\":\"string\"},{\"name\":\"plateforme\",\"type\":\"string\"},{\"name\":\"genres\",\"type\":{\"type\":\"array\",\"items\":\"string\"}},{\"name\":\"numeroVersion\",\"type\":\"string\"},{\"name\":\"versionAnticipe\",\"type\":\"boolean\"}]}";
-        Schema schema = new Schema.Parser().parse(schemaJson);
-        GenericRecord record = new GenericData.Record(schema);
-
-        record.put("eventId", UUID.randomUUID().toString());
-        record.put("timestamp", System.currentTimeMillis());
-        record.put("editeurId", eid);
-        record.put("nom", nom);
-        record.put("plateforme", plat);
-        List<String> genreNames = g.stream().map(Enum::name).toList();
-        record.put("genres", genreNames);
-        record.put("numeroVersion", v);
-        record.put("versionAnticipe", a);
-
-        producer.send(new ProducerRecord<>("editeur.publications.jeux", eid, record));
-    }
-
-    private static void sendPatchEvent(String eid, String jeu, String v, List<String> m, String c) {
-        String schemaJson = "{\"type\":\"record\",\"namespace\":\"com.polysteam.events\",\"name\":\"PublicationPatchEvent\",\"fields\":[{\"name\":\"eventId\",\"type\":\"string\"},{\"name\":\"timestamp\",\"type\":\"long\"},{\"name\":\"editeurId\",\"type\":\"string\"},{\"name\":\"jeuNom\",\"type\":\"string\"},{\"name\":\"idPatch\",\"type\":\"int\"},{\"name\":\"commentaireEditeur\",\"type\":[\"null\",\"string\"]},{\"name\":\"nouvelleVersion\",\"type\":\"string\"},{\"name\":\"modifications\",\"type\":{\"type\":\"array\",\"items\":\"string\"}}]}";
-        Schema schema = new Schema.Parser().parse(schemaJson);
-        GenericRecord record = new GenericData.Record(schema);
-
-        record.put("eventId", UUID.randomUUID().toString());
-        record.put("timestamp", System.currentTimeMillis());
-        record.put("editeurId", eid);
-        record.put("jeuNom", jeu);
-        record.put("idPatch", compteurPatch++);
-        record.put("commentaireEditeur", c);
-        record.put("nouvelleVersion", v);
-        record.put("modifications", m);
-
-        producer.send(new ProducerRecord<>("editeur.publications.patchs", eid, record));
-    }
 
     private static void startBackgroundThreads() {
         // Router Kafka Streams
@@ -254,7 +236,7 @@ public class Main {
         }).start();
     }
 
-    // --- OUTILS DE SÉLECTION (Inchangés) ---
+    // --- OUTILS DE SÉLECTION ---
 
     private static Editeur choisirEditeur() {
         System.out.println("\nChoisissez un éditeur :");
@@ -281,4 +263,45 @@ public class Main {
         for (String id : ids) res.add(all[Integer.parseInt(id) - 1]);
         return res;
     }
+
+    /**
+     * Insère les éditeurs dans la table 'editeur' s'ils n'existent pas encore.
+     * Aligné sur la structure : id (varchar 36), nom (varchar 255), est_independant (bool)
+     */
+    private static void synchroniserEditeurs() {
+        System.out.println("🔄 Synchronisation et récupération des IDs éditeurs...");
+
+        // Requêtes SQL
+        String selectSql = "SELECT id FROM public.editeur WHERE nom = ?";
+        String insertSql = "INSERT INTO public.editeur (id, nom, est_independant, date_creation) VALUES (?, ?, ?, CURRENT_TIMESTAMP)";
+
+        for (Editeur e : editeurs) {
+            try {
+                // 1. Vérifier si l'éditeur existe déjà par son NOM
+                PreparedStatement selectPs = pgConnection.prepareStatement(selectSql);
+                selectPs.setString(1, e.getNom());
+                ResultSet rs = selectPs.executeQuery();
+
+                if (rs.next()) {
+                    // L'éditeur existe : on récupère l'ID de la BDD et on l'injecte dans l'objet Java
+                    String dbId = rs.getString("id");
+                    e.setId(UUID.fromString(dbId));
+                    System.out.println("  🔗 Editeur '" + e.getNom() + "' trouvé. ID synchronisé : " + dbId);
+                } else {
+                    // L'éditeur n'existe pas : on l'insère avec l'UUID généré à l'instanciation
+                    PreparedStatement insertPs = pgConnection.prepareStatement(insertSql);
+                    insertPs.setString(1, e.getId().toString());
+                    insertPs.setString(2, e.getNom());
+                    insertPs.setBoolean(3, e.getType() == Enums.TYPE_EDITEUR.INDEPENDANT);
+                    insertPs.executeUpdate();
+                    System.out.println("  🆕 Editeur '" + e.getNom() + "' créé en base.");
+                }
+            } catch (SQLException ex) {
+                System.err.println("❌ Erreur synchro pour " + e.getNom() + " : " + ex.getMessage());
+            }
+        }
+    }
+
 }
+
+
