@@ -1,5 +1,7 @@
 package model;
 
+import dao.EvaluationDAO;
+import dao.JeuCatalogueDAO;
 import service.CatalogueService;
 import service.PricingService;
 
@@ -31,7 +33,17 @@ public class Plateforme {
         this.patches = new ArrayList<>();
         this.extensions = new HashMap<>();
         this.catalogueService = new CatalogueService();
-        this.pricingService = new PricingService();
+
+        // Initialiser PricingService avec les DAOs (si disponibles)
+        try {
+            EvaluationDAO evaluationDAO = new EvaluationDAO();
+            JeuCatalogueDAO jeuDAO = new JeuCatalogueDAO();
+            this.pricingService = new PricingService(evaluationDAO, jeuDAO);
+        } catch (Exception e) {
+            // En cas d'erreur (pas de BDD par exemple), on continue sans pricing service
+            System.err.println("⚠️  Avertissement : PricingService non disponible (pas de connexion BDD)");
+            this.pricingService = null;
+        }
     }
 
     // === GESTION DES JOUEURS ===
@@ -304,8 +316,11 @@ public class Plateforme {
 
         System.out.println("✅ Évaluation postée pour " + titreJeu + " : " + note + "/10");
 
-        // Recalculer le prix en fonction des évaluations
-        pricingService.recalculerPrix(jeu);
+        /*
+        if (pricingService != null) {
+            pricingService.recalculerPrix(jeu);
+        }
+        */
     }
 
     /**

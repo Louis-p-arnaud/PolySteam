@@ -76,32 +76,6 @@ public class EvaluationDAO {
     }
 
     /**
-     * Insère une nouvelle évaluation
-     */
-    public boolean insert(String joueurPseudo, String jeuId, int note, String commentaire) {
-        String sql = """
-            INSERT INTO evaluation (joueur_pseudo, jeu_id, extension_id, note, commentaire)
-            VALUES (?, ?, NULL, ?, ?)
-        """;
-
-        try (Connection conn = DatabaseConfig.getConnection();
-             PreparedStatement pstmt = conn.prepareStatement(sql)) {
-
-            pstmt.setString(1, joueurPseudo);
-            pstmt.setString(2, jeuId);
-            pstmt.setInt(3, note);
-            pstmt.setString(4, commentaire);
-
-            pstmt.executeUpdate();
-            return true;
-
-        } catch (SQLException e) {
-            System.err.println("❌ Erreur lors de l'insertion de l'évaluation : " + e.getMessage());
-            return false;
-        }
-    }
-
-    /**
      * Vote sur une évaluation
      */
     public boolean voterEvaluation(int evaluationId, String votantPseudo, boolean estUtile) {

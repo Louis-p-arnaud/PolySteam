@@ -1,0 +1,103 @@
+{
+  "type": "record",
+  "name": "ModificationPrixEvent",
+  "namespace": "com.polysteam.plateforme.events",
+  "doc": "Événement publié à chaque modification de prix d'un jeu sur la plateforme",
+  "fields": [
+    {
+      "name": "eventId",
+      "type": "string",
+      "doc": "Identifiant unique de l'événement"
+    },
+    {
+      "name": "timestamp",
+      "type": "long",
+      "doc": "Horodatage de la modification (epoch milliseconds)"
+    },
+    {
+      "name": "jeuId",
+      "type": "string",
+      "doc": "Identifiant unique du jeu concerné"
+    },
+    {
+      "name": "titreJeu",
+      "type": "string",
+      "doc": "Titre du jeu"
+    },
+    {
+      "name": "editeurId",
+      "type": "string",
+      "doc": "Identifiant de l'éditeur du jeu"
+    },
+    {
+      "name": "prixEditeur",
+      "type": "double",
+      "doc": "Prix de base défini par l'éditeur (en euros)"
+    },
+    {
+      "name": "ancienPrix",
+      "type": "double",
+      "doc": "Prix avant la modification (en euros)"
+    },
+    {
+      "name": "nouveauPrix",
+      "type": "double",
+      "doc": "Nouveau prix après la modification (en euros)"
+    },
+    {
+      "name": "pourcentageVariation",
+      "type": "double",
+      "doc": "Pourcentage de variation du prix (ex: +15.0 pour +15%, -10.0 pour -10%)"
+    },
+    {
+      "name": "noteMoyenne",
+      "type": "double",
+      "doc": "Note moyenne actuelle du jeu (sur 10)"
+    },
+    {
+      "name": "nombreEvaluations",
+      "type": "int",
+      "doc": "Nombre total d'évaluations pour ce jeu"
+    },
+    {
+      "name": "raisonModification",
+      "type": {
+        "type": "enum",
+        "name": "RaisonModification",
+        "symbols": [
+          "EVALUATION_EXCELLENTE",
+          "EVALUATION_BONNE",
+          "EVALUATION_MOYENNE",
+          "EVALUATION_MAUVAISE",
+          "RETOUR_PRIX_BASE",
+          "AJUSTEMENT_MANUEL"
+        ]
+      },
+      "doc": "Raison de la modification du prix"
+    },
+    {
+      "name": "description",
+      "type": "string",
+      "doc": "Description détaillée de la modification (ex: 'Prix ajusté à la hausse suite à une excellente note moyenne')"
+    },
+    {
+      "name": "plateforme",
+      "type": "string",
+      "default": "MULTI",
+      "doc": "Plateforme concernée (PC, PS5, Xbox, Switch, MULTI)"
+    },
+    {
+      "name": "estPromotion",
+      "type": "boolean",
+      "default": false,
+      "doc": "Indique s'il s'agit d'une baisse de prix (promotion)"
+    },
+    {
+      "name": "estAugmentation",
+      "type": "boolean",
+      "default": false,
+      "doc": "Indique s'il s'agit d'une hausse de prix"
+    }
+  ]
+}
+

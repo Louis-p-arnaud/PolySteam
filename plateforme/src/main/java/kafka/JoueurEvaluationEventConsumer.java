@@ -1,6 +1,9 @@
 package kafka;
 
 import config.DatabaseConfig;
+import dao.EvaluationDAO;
+import dao.JeuCatalogueDAO;
+import service.PricingService;
 import io.confluent.kafka.serializers.KafkaAvroDeserializer;
 import org.apache.avro.generic.GenericRecord;
 import org.apache.kafka.clients.consumer.ConsumerConfig;
@@ -32,11 +35,18 @@ public class JoueurEvaluationEventConsumer {
 
     private final KafkaConsumer<String, GenericRecord> consumer;
     private final EvaluationEventProducer evaluationProducer;
+    private final PricingService pricingService;
     private volatile boolean running = false;
 
     public JoueurEvaluationEventConsumer() {
         this.consumer = new KafkaConsumer<>(createConsumerConfig());
         this.evaluationProducer = new EvaluationEventProducer();
+
+        // Initialiser le PricingService avec les DAOs
+        EvaluationDAO evaluationDAO = new EvaluationDAO();
+        JeuCatalogueDAO jeuDAO = new JeuCatalogueDAO();
+        this.pricingService = new PricingService(evaluationDAO, jeuDAO);
+
         System.out.println("✅ Kafka Consumer initialisé pour le topic: " + TOPIC_NAME);
     }
 
@@ -237,7 +247,30 @@ public class JoueurEvaluationEventConsumer {
                 );
 
                 System.out.println("✅ [KAFKA] Évaluation republiée avec succès sur 'plateforme.evaluations'");
-                System.out.println("  📊 Recommandation : " + (recommande ? "✅ OUI" : "❌ NON") + " (note " + (recommande ? ">" : "≤") + " 5)\n");
+                System.out.println("  📊 Recommandation : " + (recommande ? "✅ OUI" : "❌ NON") + " (note " + (recommande ? ">" : "≤") + " 5)");
+
+                // 💰 RECALCUL DU PRIX : Mettre à jour le prix du jeu en fonction de la nouvelle note moyenne
+                if (infoJeu != null && infoJeu.prixEditeur > 0) {
+                    System.out.println("\n💰 [PRICING] Recalcul du prix en fonction de la note moyenne mise à jour...");
+                    boolean prixMisAJour = pricingService.recalculerPrixDepuisBDD(
+                            jeuId,
+                            titreJeu,
+                            infoJeu.editeurId,
+                            infoJeu.prixEditeur,
+                            infoJeu.prixActuel,
+                            infoJeu.plateformesPrincipale
+                    );
+
+                    if (prixMisAJour) {
+                        System.out.println("✅ [PRICING] Prix mis à jour en base de données");
+                    } else {
+                        System.err.println("⚠️  [PRICING] Erreur lors de la mise à jour du prix");
+                    }
+                } else {
+                    System.err.println("⚠️  [PRICING] Impossible de recalculer le prix (jeu non trouvé ou prix éditeur invalide)");
+                }
+
+                System.out.println(); // Ligne vide pour la lisibilité
 
             } catch (Exception e) {
                 System.err.println("❌ [KAFKA] Erreur lors de la republication de l'évaluation: " + e.getMessage());
@@ -253,10 +286,10 @@ public class JoueurEvaluationEventConsumer {
     /**
      * Récupère les informations d'un jeu depuis la base de données
      * @param jeuId ID du jeu
-     * @return InfoJeu contenant editeurId, plateforme et version, ou null si non trouvé
+     * @return InfoJeu contenant editeurId, plateforme, version, prix éditeur et prix actuel, ou null si non trouvé
      */
     private InfoJeu recupererInfoJeu(String jeuId) {
-        String query = "SELECT editeur_id, plateforme, version_actuelle FROM jeu_catalogue WHERE id = ?";
+        String query = "SELECT editeur_id, plateforme, version_actuelle, prix_editeur, prix_actuel FROM jeu_catalogue WHERE id = ?";
 
         try (Connection conn = DatabaseConfig.getConnection();
              PreparedStatement stmt = conn.prepareStatement(query)) {
@@ -269,6 +302,8 @@ public class JoueurEvaluationEventConsumer {
                 info.editeurId = rs.getString("editeur_id");
                 info.plateformesPrincipale = rs.getString("plateforme");
                 info.versionActuelle = rs.getString("version_actuelle");
+                info.prixEditeur = rs.getDouble("prix_editeur");
+                info.prixActuel = rs.getDouble("prix_actuel");
                 return info;
             }
 
@@ -286,6 +321,8 @@ public class JoueurEvaluationEventConsumer {
         String editeurId;
         String plateformesPrincipale;
         String versionActuelle;
+        double prixEditeur;
+        double prixActuel;
     }
 
     /**
