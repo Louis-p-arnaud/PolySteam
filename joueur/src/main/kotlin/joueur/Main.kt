@@ -153,10 +153,12 @@ fun menuPrincipal(utilisateur: Joueur, scanner: Scanner) {
         println("4. 👤 Mon Profil")
         println("      └─ Voir mes informations et évaluations")
         println()
-        println("5. 🚪 Se déconnecter")
+        println("5. 📱 Voir mon flux d'actualité")
+        println()
+        println("6. 🚪 Se déconnecter")
         println()
         println("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
-        print("👉 Choisissez une option (1-5) : ")
+        print("👉 Choisissez une option (1-6) : ")
 
         when (scanner.nextLine().trim()) {
             "1" -> menuBibliotheque(service, scanner)
@@ -164,6 +166,10 @@ fun menuPrincipal(utilisateur: Joueur, scanner: Scanner) {
             "3" -> menuSocial(service, scanner)
             "4" -> menuProfil(service, utilisateur, scanner)
             "5" -> {
+                service.afficherFluxActualite()
+                attendreUtilisateur(scanner)
+            }
+            "6" -> {
                 println("\n👋 Déconnexion en cours...")
                 continuer = false
             }

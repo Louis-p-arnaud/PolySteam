@@ -591,8 +591,20 @@ class Evenement(private val joueur: Joueur) {
             }
 
             val record = ProducerRecord<String, GenericRecord>("joueur.notifications.evaluations", joueur.pseudo, avroRecord)
+
+            println("📡 Tentative d'envoi vers Kafka...")
+            val future = producer.send(record)
+            producer.flush() // Force le départ du message depuis ton PC
+            future.get()     // Attend que le serveur (86.252.172.215) réponde
+
+            println("✅ Message confirmé par le serveur Kafka !")
+
+            /*
+            val record = ProducerRecord<String, GenericRecord>("joueur.notifications.evaluations", joueur.pseudo, avroRecord)
             producer.send(record)
             println("📡 Notification Avro envoyée avec succès !")
+            */
+
 
         } catch (e: Exception) {
             println("⚠️ Erreur envoi Avro : ${e.message}")
@@ -1220,8 +1232,93 @@ class Evenement(private val joueur: Joueur) {
         }
     }
 
+    fun afficherFluxActualite() {
+        println("\n📢 --- FLUX D'ACTUALITÉ POLYSTEAM ---")
+        println("⏳ Chargement de vos actualités personnalisées...")
 
+        // On garde un Group ID stable pour ne pas relire 50 fois la même chose
+        val consumer = KafkaClientFactory.createAchatJeuConsumer("flux-joueur-${joueur.pseudo}")
+        consumer.subscribe(listOf("joueur.notifications.evaluations"))
 
+        try {
+            var messagesAffiches = 0
+            // On fait 2-3 tentatives pour laisser Kafka livrer les messages
+            repeat(3) {
+                val records = consumer.poll(java.time.Duration.ofMillis(1500))
+                for (record in records) {
+                    val eval = record.value()
+                    val titreJeu = eval.get("titreJeu").toString()
 
+                    // RÉACTIVATION DU FILTRAGE
+                    if (doitAfficherEvaluation(titreJeu)) {
+                        messagesAffiches++
+                        println("\n✨ NOUVELLE ÉVALUATION")
+                        println("🎮 Jeu   : $titreJeu")
+                        println("👤 Par   : ${eval.get("pseudoJoueur")}")
+                        println("⭐ Note  : ${eval.get("note")}/5")
+                        println("💬 \"${eval.get("commentaire")}\"")
+                        println("----------------------------------------------")
+                    }
+                }
+            }
 
+            if (messagesAffiches == 0) {
+                println("\n📭 Rien de neuf pour le moment sur vos jeux préférés.")
+            } else {
+                println("\n✅ Vous avez rattrapé toutes vos actualités.")
+            }
+
+        } catch (e: Exception) {
+            println("⚠️ Impossible de charger le flux : ${e.message}")
+        } finally {
+            consumer.close()
+        }
+    }
+
+    private fun afficherMessageEvaluation(eval: org.apache.avro.generic.GenericRecord) {
+        println("\n✨ NOUVELLE ÉVALUATION sur un jeu qui vous intéresse !")
+        println("🎮 Jeu   : ${eval.get("titreJeu")}")
+        println("👤 Par   : ${eval.get("pseudoJoueur")}")
+        println("⭐ Note  : ${eval.get("note")}/10")
+        println("💬 \"${eval.get("commentaire")}\"")
+        println("----------------------------------------------")
+    }
+
+    private fun doitAfficherEvaluation(titre: String): Boolean {
+        val url = "jdbc:postgresql://86.252.172.215:5432/polysteam"
+        val user = "polysteam_user"
+        val pass = "PolySteam2026!"
+
+        return try {
+            DriverManager.getConnection(url, user, pass).use { conn ->
+                val sql = """
+                    SELECT EXISTS (
+                        SELECT 1 FROM jeu_possede jp 
+                        JOIN jeu_catalogue jc ON jp.jeu_id = jc.id 
+                        WHERE jp.joueur_pseudo = ? AND jc.titre = ?
+                        UNION
+                        SELECT 1 FROM wishlist w 
+                        JOIN jeu_catalogue jc ON w.jeu_id = jc.id 
+                        WHERE w.joueur_pseudo = ? AND jc.titre = ?
+                    )
+                """.trimIndent()
+
+                conn.prepareStatement(sql).use { stmt ->
+                    stmt.setString(1, joueur.pseudo)
+                    stmt.setString(2, titre)
+                    stmt.setString(3, joueur.pseudo)
+                    stmt.setString(4, titre)
+                    val rs = stmt.executeQuery()
+                    if (rs.next()) rs.getBoolean(1) else false
+                }
+            }
+        } catch (e: Exception) {
+            false
+        }
+    }
 }
+
+
+
+
+
