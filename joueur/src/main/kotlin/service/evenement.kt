@@ -1236,28 +1236,36 @@ class Evenement(private val joueur: Joueur) {
         println("\n📢 --- FLUX D'ACTUALITÉ POLYSTEAM ---")
         println("⏳ Chargement de vos actualités personnalisées...")
 
-        // On garde un Group ID stable pour ne pas relire 50 fois la même chose
         val consumer = KafkaClientFactory.createAchatJeuConsumer("flux-joueur-${joueur.pseudo}")
-        consumer.subscribe(listOf("joueur.notifications.evaluations"))
+
+        // Mise à jour des noms des topics
+        val topics = listOf("joueur.notifications.evaluations", "plateforme.modifications.prix")
+        consumer.subscribe(topics)
 
         try {
             var messagesAffiches = 0
-            // On fait 2-3 tentatives pour laisser Kafka livrer les messages
+            // On effectue plusieurs polls pour laisser le temps au rebalance et à la récupération
             repeat(3) {
                 val records = consumer.poll(java.time.Duration.ofMillis(1500))
                 for (record in records) {
-                    val eval = record.value()
-                    val titreJeu = eval.get("titreJeu").toString()
+                    val message = record.value()
+                    val topic = record.topic()
+                    val titreJeu = message.get("titreJeu").toString()
 
-                    // RÉACTIVATION DU FILTRAGE
-                    if (doitAfficherEvaluation(titreJeu)) {
-                        messagesAffiches++
-                        println("\n✨ NOUVELLE ÉVALUATION")
-                        println("🎮 Jeu   : $titreJeu")
-                        println("👤 Par   : ${eval.get("pseudoJoueur")}")
-                        println("⭐ Note  : ${eval.get("note")}/5")
-                        println("💬 \"${eval.get("commentaire")}\"")
-                        println("----------------------------------------------")
+                    when (topic) {
+                        "joueur.notifications.evaluations" -> {
+                            if (doitAfficherEvaluation(titreJeu)) {
+                                messagesAffiches++
+                                afficherMessageEvaluation(message)
+                            }
+                        }
+                        "plateforme.modifications.prix" -> {
+                            val estPromotion = message.get("estPromotion") as Boolean
+                            if (estPromotion && estDansWishlist(titreJeu)) {
+                                messagesAffiches++
+                                afficherAlertePrix(message)
+                            }
+                        }
                     }
                 }
             }
@@ -1265,11 +1273,11 @@ class Evenement(private val joueur: Joueur) {
             if (messagesAffiches == 0) {
                 println("\n📭 Rien de neuf pour le moment sur vos jeux préférés.")
             } else {
-                println("\n✅ Vous avez rattrapé toutes vos actualités.")
+                println("\n✅ Fin du flux d'actualité.")
             }
 
         } catch (e: Exception) {
-            println("⚠️ Impossible de charger le flux : ${e.message}")
+            println("⚠️ Erreur lors de la lecture du flux : ${e.message}")
         } finally {
             consumer.close()
         }
@@ -1316,6 +1324,47 @@ class Evenement(private val joueur: Joueur) {
             false
         }
     }
+
+    private fun afficherAlertePrix(msg: org.apache.avro.generic.GenericRecord) {
+        val ancienPrix = msg.get("ancienPrix")
+        val nouveauPrix = msg.get("nouveauPrix")
+        val promo = msg.get("pourcentageVariation")
+
+        println("\n🔥 PROMOTION DANS VOTRE WISHLIST !")
+        println("🎮 Jeu    : ${msg.get("titreJeu")}")
+        println("💰 Prix   : $ancienPrix€ ➔ $nouveauPrix€ ($promo%)")
+        println("📝 Note   : ${msg.get("noteMoyenne")}/5 (${msg.get("nombreEvaluations")} avis)")
+        println("📢 Info   : ${msg.get("description")}")
+        println("----------------------------------------------")
+    }
+
+    private fun estDansWishlist(titre: String): Boolean {
+        val url = "jdbc:postgresql://86.252.172.215:5432/polysteam"
+        val user = "polysteam_user"
+        val pass = "PolySteam2026!"
+
+        return try {
+            DriverManager.getConnection(url, user, pass).use { conn ->
+                // On vérifie si le titre du jeu existe dans la wishlist du joueur
+                val sql = """
+                SELECT 1 FROM wishlist w 
+                JOIN jeu_catalogue jc ON w.jeu_id = jc.id 
+                WHERE w.joueur_pseudo = ? AND jc.titre = ?
+            """.trimIndent()
+
+                conn.prepareStatement(sql).use { stmt ->
+                    stmt.setString(1, joueur.pseudo)
+                    stmt.setString(2, titre)
+                    val rs = stmt.executeQuery()
+                    rs.next() // Retourne true si une ligne est trouvée, false sinon
+                }
+            }
+        } catch (e: Exception) {
+            println("⚠️ Erreur SQL Wishlist : ${e.message}")
+            false
+        }
+    }
+
 }
 
 
