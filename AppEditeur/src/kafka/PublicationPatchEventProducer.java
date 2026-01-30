@@ -27,7 +27,7 @@ public class PublicationPatchEventProducer {
 
     private static final String KAFKA_BOOTSTRAP_SERVERS = "86.252.172.215:9092";
     private static final String SCHEMA_REGISTRY_URL = "http://86.252.172.215:8081";
-    private static final String DEFAULT_TOPIC = "polysteam.publication.patch";
+    private static final String DEFAULT_TOPIC = "editeur.publications.patchs";
 
     private final KafkaProducer<String, GenericRecord> producer;
     private final Schema schema;
@@ -78,9 +78,9 @@ public class PublicationPatchEventProducer {
     }
 
     public void publierPublicationPatch(
-            String editeurId,
+            UUID editeurId,
             String jeuNom,
-            int idPatch,
+            UUID idPatch,
             String commentaireEditeur,
             String nouvelleVersion,
             List<String> modifications
@@ -91,9 +91,9 @@ public class PublicationPatchEventProducer {
             GenericRecordBuilder builder = new GenericRecordBuilder(schema);
             builder.set("eventId", UUID.randomUUID().toString());
             builder.set("timestamp", System.currentTimeMillis());
-            builder.set("editeurId", editeurId != null ? editeurId : "");
+            builder.set("editeurId", editeurId != null ? editeurId.toString() : "");
             builder.set("jeuNom", jeuNom != null ? jeuNom : "");
-            builder.set("idPatch", idPatch);
+            builder.set("idPatch", idPatch.toString());
             builder.set("commentaireEditeur", commentaireEditeur);
 
             GenericData.Array<String> avroMods = new GenericData.Array<>(
@@ -111,7 +111,7 @@ public class PublicationPatchEventProducer {
 
             System.out.println("  ✅ Événement PublicationPatch Avro créé");
 
-            ProducerRecord<String, GenericRecord> record = new ProducerRecord<>(this.topicName, editeurId, event);
+            ProducerRecord<String, GenericRecord> record = new ProducerRecord<>(this.topicName, editeurId.toString(), event);
 
             var future = producer.send(record, (metadata, exception) -> {
                 if (exception != null) {
