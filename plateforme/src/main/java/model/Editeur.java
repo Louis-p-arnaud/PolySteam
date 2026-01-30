@@ -2,23 +2,26 @@ package model;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.UUID;
 
 public class Editeur {
-    private UUID id;
+    private String id;
     private String nom;
     private boolean estIndependant; // true si indépendant, false si entreprise
     private List<String> jeuxPublies; // Liste des titres de jeux publiés
 
     public Editeur(String nom, boolean estIndependant) {
-        this.id = UUID.randomUUID();
+        this.id = null; // Sera défini par la BDD
         this.nom = nom;
         this.estIndependant = estIndependant;
         this.jeuxPublies = new ArrayList<>();
     }
 
-    public UUID getId() {
+    public String getId() {
         return id;
+    }
+
+    public void setId(String id) {
+        this.id = id;
     }
 
     public String getNom() {

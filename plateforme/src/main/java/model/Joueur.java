@@ -15,6 +15,7 @@ public class Joueur {
     private LocalDate dateInscription;
     private List<JeuPossede> bibliotheque; // Liste de jeux
     private List<Evaluation> mesEvaluations;
+    private List<String> amis; // Liste des pseudos des amis
 
     public Joueur(String pseudo, String nom, String prenom, LocalDate dateNaissance) {
         this.pseudo = pseudo;
@@ -24,6 +25,7 @@ public class Joueur {
         this.dateInscription = LocalDate.now();
         this.bibliotheque = new ArrayList<>();
         this.mesEvaluations = new ArrayList<>();
+        this.amis = new ArrayList<>();
     }
 
     // Getters
@@ -43,6 +45,10 @@ public class Joueur {
         return dateNaissance;
     }
 
+    public int getAge() {
+        return LocalDate.now().getYear() - dateNaissance.getYear();
+    }
+
     public LocalDate getDateInscription() {
         return dateInscription;
     }
@@ -55,6 +61,14 @@ public class Joueur {
         return mesEvaluations;
     }
 
+    public List<String> getAmis() {
+        return amis;
+    }
+
+    public boolean estAmiAvec(String pseudo) {
+        return amis.contains(pseudo);
+    }
+
     // Méthodes métier
     public void acheterJeu(JeuCatalogue jeu) {
         // logique d'ajout à la bibliothèque
@@ -64,5 +78,15 @@ public class Joueur {
 
     public void ajouterEvaluation(Evaluation evaluation) {
         this.mesEvaluations.add(evaluation);
+    }
+
+    public void ajouterAmi(String pseudoAmi) {
+        if (!amis.contains(pseudoAmi) && !pseudoAmi.equals(this.pseudo)) {
+            amis.add(pseudoAmi);
+        }
+    }
+
+    public void retirerAmi(String pseudoAmi) {
+        amis.remove(pseudoAmi);
     }
 }

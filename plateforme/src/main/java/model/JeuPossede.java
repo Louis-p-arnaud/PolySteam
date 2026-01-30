@@ -3,17 +3,17 @@ package model;
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.UUID;
 
 public class JeuPossede {
-    private UUID jeuId; // Référence au jeu dans le catalogue
+    private String jeuId; // Référence au jeu dans le catalogue
+    private JeuCatalogue jeuCatalogue; // Référence complète au jeu
     private String titreJeu;
     private long tempsDeJeuEnMinutes;
     private String versionInstallee;
     private LocalDate dateAchat;
     private List<Extension> extensionsPossedees;
 
-    public JeuPossede(UUID jeuId, String titreJeu, String versionInstallee) {
+    public JeuPossede(String jeuId, String titreJeu, String versionInstallee) {
         this.jeuId = jeuId;
         this.titreJeu = titreJeu;
         this.versionInstallee = versionInstallee;
@@ -22,12 +22,20 @@ public class JeuPossede {
         this.extensionsPossedees = new ArrayList<>();
     }
 
+    public void setJeuCatalogue(JeuCatalogue jeuCatalogue) {
+        this.jeuCatalogue = jeuCatalogue;
+    }
+
     public void ajouterTempsDeJeu(long minutes) {
         this.tempsDeJeuEnMinutes += minutes;
     }
 
-    public UUID getJeuId() {
+    public String getJeuId() {
         return jeuId;
+    }
+
+    public JeuCatalogue getJeuCatalogue() {
+        return jeuCatalogue;
     }
 
     public String getTitreJeu() {
@@ -36,6 +44,10 @@ public class JeuPossede {
 
     public long getTempsDeJeuEnMinutes() {
         return tempsDeJeuEnMinutes;
+    }
+
+    public long getTempsJeuHeures() {
+        return tempsDeJeuEnMinutes / 60;
     }
 
     public String getVersionInstallee() {

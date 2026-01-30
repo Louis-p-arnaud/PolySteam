@@ -1,46 +1,55 @@
 package model;
 
 import java.time.LocalDateTime;
-import java.util.UUID;
 
 public class RapportIncident {
-    private String idIncident;
-    private String titreJeu;
-    private String versionJeu; // Important pour que l'éditeur sache quoi corriger
-    private String os;         // Plateforme d'exécution (PC, PS5...)
-    private String pseudoJoueur; // Joueur ayant rencontré l'incident
-
-    private String descriptionErreur; // Stacktrace ou code erreur
+    private String id;
+    private String jeuId;        // ID du jeu concerné
+    private String versionJeu;    // Version du jeu
+    private String plateforme;    // Plateforme d'exécution (PC, PS5...)
+    private String joueurPseudo;  // Joueur ayant rencontré l'incident
+    private String descriptionErreur; // Description de l'erreur
     private LocalDateTime dateSurvenue;
 
-    public RapportIncident(String titreJeu, String versionJeu, String os, String pseudoJoueur, String descriptionErreur) {
-        this.idIncident = UUID.randomUUID().toString();
-        this.titreJeu = titreJeu;
+    // Constructeur utilisé par le DAO (avec tous les champs de la BDD)
+    public RapportIncident(String joueurPseudo, String jeuId, String versionJeu, String plateforme, String descriptionErreur) {
+        this.id = generateId();
+        this.joueurPseudo = joueurPseudo;
+        this.jeuId = jeuId;
         this.versionJeu = versionJeu;
-        this.os = os;
-        this.pseudoJoueur = pseudoJoueur;
+        this.plateforme = plateforme;
         this.descriptionErreur = descriptionErreur;
         this.dateSurvenue = LocalDateTime.now();
     }
 
-    public String getIdIncident() {
-        return idIncident;
+    // Génère un ID unique basé sur le timestamp et un nombre aléatoire
+    private String generateId() {
+        return "i" + System.currentTimeMillis() + "-" + ((int)(Math.random() * 10000));
     }
 
-    public String getTitreJeu() {
-        return titreJeu;
+    // Getters
+    public String getId() {
+        return id;
+    }
+
+    public void setId(String id) {
+        this.id = id;
+    }
+
+    public String getJeuId() {
+        return jeuId;
     }
 
     public String getVersionJeu() {
         return versionJeu;
     }
 
-    public String getOs() {
-        return os;
+    public String getPlateforme() {
+        return plateforme;
     }
 
-    public String getPseudoJoueur() {
-        return pseudoJoueur;
+    public String getJoueurPseudo() {
+        return joueurPseudo;
     }
 
     public String getDescriptionErreur() {
@@ -51,3 +60,4 @@ public class RapportIncident {
         return dateSurvenue;
     }
 }
+

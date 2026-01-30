@@ -7,7 +7,7 @@ public class Evaluation {
     private String titreJeu;     // Jeu concerné
 
     // Contenu de l'évaluation
-    private int note;            // Ex: sur 5 ou 10 ou 20
+    private int note;            // sur 10
     private String commentaire;  // Texte de l'avis
     private LocalDateTime datePublication;
 
@@ -60,7 +60,19 @@ public class Evaluation {
         return nombreVotesUtile;
     }
 
+    public void setNombreVotesUtile(int nombreVotesUtile) {
+        this.nombreVotesUtile = nombreVotesUtile;
+    }
+
     public int getNombreVotesPasUtile() {
         return nombreVotesPasUtile;
+    }
+
+    public void setNombreVotesPasUtile(int nombreVotesPasUtile) {
+        this.nombreVotesPasUtile = nombreVotesPasUtile;
+    }
+
+    public String getJoueurPseudo() {
+        return pseudoJoueur;
     }
 }

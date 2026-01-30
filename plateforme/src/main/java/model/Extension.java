@@ -1,9 +1,10 @@
 package model;
 
-import java.util.UUID;
+import java.util.ArrayList;
+import java.util.List;
 
 public class Extension {
-    private UUID id;
+    private String id;
     private String titre;
     private double prix;
 
@@ -13,16 +14,24 @@ public class Extension {
     // Lien vers le jeu parent
     private String titreJeuParent;
 
+    // Évaluations de l'extension
+    private List<Evaluation> evaluations;
+
     public Extension(String titre, double prix, String versionRequise, String jeuParent) {
-        this.id = UUID.randomUUID();
+        this.id = null; // Sera défini par la BDD
         this.titre = titre;
         this.prix = prix;
         this.versionJeuBaseRequise = versionRequise;
         this.titreJeuParent = jeuParent;
+        this.evaluations = new ArrayList<>();
     }
 
-    public UUID getId() {
+    public String getId() {
         return id;
+    }
+
+    public void setId(String id) {
+        this.id = id;
     }
 
     public String getTitre() {
@@ -39,5 +48,13 @@ public class Extension {
 
     public String getTitreJeuParent() {
         return titreJeuParent;
+    }
+
+    public List<Evaluation> getEvaluations() {
+        return evaluations;
+    }
+
+    public void ajouterEvaluation(Evaluation evaluation) {
+        this.evaluations.add(evaluation);
     }
 }

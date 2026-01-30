@@ -1,0 +1,48 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:15
+    container_name: polysteam-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: polysteam
+      POSTGRES_USER: polysteam_user
+      POSTGRES_PASSWORD: PolySteam2026!
+      PGDATA: /var/lib/postgresql/data/pgdata
+    ports:
+      - "5432:5432"
+    volumes:
+      - polysteam_pgdata:/var/lib/postgresql/data
+      - ./src/main/resources/database_polysteam.sql:/docker-entrypoint-initdb.d/01-init.sql
+    networks:
+      - polysteam-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U polysteam_user -d polysteam"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Optionnel : pgAdmin pour gérer la base de données via interface web
+  pgadmin:
+    image: dpage/pgadmin4:latest
+    container_name: polysteam-pgadmin
+    restart: unless-stopped
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@polysteam.com
+      PGADMIN_DEFAULT_PASSWORD: admin
+    ports:
+      - "5050:80"
+    networks:
+      - polysteam-network
+    depends_on:
+      - postgres
+
+volumes:
+  polysteam_pgdata:
+    driver: local
+
+networks:
+  polysteam-network:
+    driver: bridge
+
