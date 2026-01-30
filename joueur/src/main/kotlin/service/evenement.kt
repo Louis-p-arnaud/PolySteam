@@ -1238,46 +1238,53 @@ class Evenement(private val joueur: Joueur) {
 
         val consumer = KafkaClientFactory.createAchatJeuConsumer("flux-joueur-${joueur.pseudo}")
 
-        // Mise à jour des noms des topics
-        val topics = listOf("joueur.notifications.evaluations", "plateforme.modifications.prix")
+        // Abonnement aux TROIS topics
+        val topics = listOf(
+            "joueur.notifications.evaluations",
+            "plateforme.modifications.prix",
+            "editeur.publications.patchs"
+        )
         consumer.subscribe(topics)
 
         try {
             var messagesAffiches = 0
-            // On effectue plusieurs polls pour laisser le temps au rebalance et à la récupération
             repeat(3) {
                 val records = consumer.poll(java.time.Duration.ofMillis(1500))
                 for (record in records) {
                     val message = record.value()
                     val topic = record.topic()
-                    val titreJeu = message.get("titreJeu").toString()
 
                     when (topic) {
                         "joueur.notifications.evaluations" -> {
+                            val titreJeu = message.get("titreJeu").toString()
                             if (doitAfficherEvaluation(titreJeu)) {
                                 messagesAffiches++
                                 afficherMessageEvaluation(message)
                             }
                         }
                         "plateforme.modifications.prix" -> {
+                            val titreJeu = message.get("titreJeu").toString()
                             val estPromotion = message.get("estPromotion") as Boolean
                             if (estPromotion && estDansWishlist(titreJeu)) {
                                 messagesAffiches++
                                 afficherAlertePrix(message)
                             }
                         }
+                        "editeur.publications.patchs" -> {
+                            val nomJeu = message.get("jeuNom").toString()
+                            // On n'affiche le patch que si le joueur possède le jeu
+                            if (possedeLeJeu(nomJeu)) {
+                                messagesAffiches++
+                                afficherAlertePatch(message)
+                            }
+                        }
                     }
                 }
             }
 
-            if (messagesAffiches == 0) {
-                println("\n📭 Rien de neuf pour le moment sur vos jeux préférés.")
-            } else {
-                println("\n✅ Fin du flux d'actualité.")
-            }
-
+            if (messagesAffiches == 0) println("\n📭 Rien de neuf pour le moment.")
         } catch (e: Exception) {
-            println("⚠️ Erreur lors de la lecture du flux : ${e.message}")
+            println("⚠️ Erreur flux : ${e.message}")
         } finally {
             consumer.close()
         }
@@ -1363,6 +1370,49 @@ class Evenement(private val joueur: Joueur) {
             println("⚠️ Erreur SQL Wishlist : ${e.message}")
             false
         }
+    }
+
+    private fun possedeLeJeu(titre: String): Boolean {
+        val url = "jdbc:postgresql://86.252.172.215:5432/polysteam"
+        val user = "polysteam_user"
+        val pass = "PolySteam2026!"
+
+        return try {
+            DriverManager.getConnection(url, user, pass).use { conn ->
+                val sql = """
+                SELECT 1 FROM jeu_possede jp 
+                JOIN jeu_catalogue jc ON jp.jeu_id = jc.id 
+                WHERE jp.joueur_pseudo = ? AND jc.titre = ?
+            """.trimIndent()
+
+                conn.prepareStatement(sql).use { stmt ->
+                    stmt.setString(1, joueur.pseudo)
+                    stmt.setString(2, titre)
+                    val rs = stmt.executeQuery()
+                    rs.next()
+                }
+            }
+        } catch (e: Exception) {
+            false
+        }
+    }
+
+
+    private fun afficherAlertePatch(msg: org.apache.avro.generic.GenericRecord) {
+        println("\n🛠️ MISE À JOUR DISPONIBLE !")
+        println("🎮 Jeu      : ${msg.get("jeuNom")}")
+        println("📦 Version  : ${msg.get("nouvelleVersion")}")
+
+        // Le commentaire peut être nul ou encapsulé dans un objet Avro
+        val comm = msg.get("commentaireEditeur")
+        println("📝 Note     : $comm")
+
+        val modifs = msg.get("modifications") as? List<*>
+        if (modifs != null && modifs.isNotEmpty()) {
+            println("🚀 Changements :")
+            modifs.forEach { println("   • $it") }
+        }
+        println("----------------------------------------------")
     }
 
 }
